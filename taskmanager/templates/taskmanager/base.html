@@ -1,4 +1,5 @@
 {% load static %}
+{% load pwa %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -12,6 +13,8 @@
     <title>{% block title %}Hangarin{% endblock %}</title>
 
     <link rel="stylesheet" href="{% static 'taskmanager/style.css' %}">
+
+    {% progressive_web_app_meta %}
 
 </head>
 

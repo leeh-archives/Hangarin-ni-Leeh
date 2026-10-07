@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     
     'taskmanager',
+    'pwa',
 ]
 
 MIDDLEWARE = [
@@ -118,6 +120,49 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Hangarin PWA Settings
+
+PWA_APP_NAME = "Hangarin"
+
+PWA_APP_DESCRIPTION = "A cute and simple task and to-do manager"
+
+PWA_APP_THEME_COLOR = "#E88BAA"
+
+PWA_APP_BACKGROUND_COLOR = "#FFF5F8"
+
+PWA_APP_DISPLAY = "standalone"
+
+PWA_APP_SCOPE = "/"
+
+PWA_APP_ORIENTATION = "portrait"
+
+PWA_APP_START_URL = "/tasks/"
+
+PWA_APP_STATUS_BAR_COLOR = "default"
+
+PWA_APP_ICONS = [
+    {
+        "src": "/static/taskmanager/img/icon-192x192.png",
+        "sizes": "192x192"
+    },
+]
+
+PWA_APP_ICONS_APPLE = [
+    {
+        "src": "/static/taskmanager/img/icon-192x192.png",
+        "sizes": "192x192"
+    },
+]
+
+PWA_APP_DIR = "ltr"
+
+PWA_SERVICE_WORKER_PATH = os.path.join(
+    BASE_DIR,
+    "taskmanager",
+    "static",
+    "taskmanager",
+    "serviceworker.js"
+)
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
