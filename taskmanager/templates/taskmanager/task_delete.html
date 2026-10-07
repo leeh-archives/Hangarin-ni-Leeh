@@ -1,32 +1,56 @@
-{% load static %}
+{% extends "taskmanager/base.html" %}
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Hangarin - Delete Task</title>
-    <link rel="stylesheet" href="{% static 'taskmanager/style.css' %}">
-</head>
-<body>
+{% block title %}Delete Task | Hangarin{% endblock %}
 
-    <a href="{% url 'task_list' %}">All Tasks</a>
+{% block content %}
 
-    <hr>
+<div class="page-heading">
 
-    <h1>Delete Task</h1>
+    <a href="{% url 'task_detail' task.id %}" class="back-link">
+        ← Back to Task
+    </a>
+
+    <h2>Delete Task 🌷</h2>
 
     <p>Are you sure you want to delete this task?</p>
 
-    <h2>{{ task.title }}</h2>
+</div>
+
+
+<div class="delete-card">
+
+    <div class="delete-icon">
+        🗑️
+    </div>
+
+    <h3>{{ task.title }}</h3>
+
+    <p>
+        This action cannot be undone.
+    </p>
+
 
     <form method="POST">
+
         {% csrf_token %}
 
-        <button type="submit">Yes, Delete Task</button>
+        <div class="form-actions">
+
+            <a
+                href="{% url 'task_detail' task.id %}"
+                class="cancel-button"
+            >
+                Keep Task
+            </a>
+
+            <button type="submit" class="delete-confirm-button">
+                Yes, Delete
+            </button>
+
+        </div>
+
     </form>
 
-    <br>
+</div>
 
-    <a href="{% url 'task_detail' task.id %}">Cancel</a>
-
-</body>
-</html>
+{% endblock %}

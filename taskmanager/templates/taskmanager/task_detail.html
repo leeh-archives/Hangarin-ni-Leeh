@@ -1,60 +1,128 @@
-{% load static %}
+{% extends "taskmanager/base.html" %}
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Hangarin - Task Details</title>
-    <link rel="stylesheet" href="{% static 'taskmanager/style.css' %}">
-</head>
+{% block title %}{{ task.title }} | Hangarin{% endblock %}
 
-<body>
+{% block content %}
 
-    <a href="{% url 'task_list' %}">All Tasks</a>
+<div class="page-heading">
 
-    <hr>
+    <a href="{% url 'task_list' %}" class="back-link">
+        ← Back to Tasks
+    </a>
 
-    <h1>{{ task.title }}</h1>
+    <h2>{{ task.title }}</h2>
 
-    <p><strong>Description:</strong> {{ task.description }}</p>
+    <p>Here are the details of this task.</p>
 
-    <p><strong>Status:</strong> {{ task.status }}</p>
-
-    <p><strong>Priority:</strong> {{ task.priority }}</p>
-
-    <p><strong>Category:</strong> {{ task.category }}</p>
-
-    <p><strong>Deadline:</strong> {{ task.deadline }}</p>
+</div>
 
 
-    <h2>Notes</h2>
+<!-- Task Details -->
+
+<div class="detail-card">
+
+    <h3>Task Details 🌷</h3>
+
+    <p>
+        <strong>Description</strong><br>
+        {{ task.description }}
+    </p>
+
+    <div class="detail-info">
+
+        <span>
+            Status: {{ task.status }}
+        </span>
+
+        <span>
+            Category: {{ task.category }}
+        </span>
+
+        <span>
+            Priority: {{ task.priority }}
+        </span>
+
+        <span>
+            Deadline: {{ task.deadline }}
+        </span>
+
+    </div>
+
+</div>
+
+
+<!-- Notes -->
+
+<div class="detail-card">
+
+    <h3>Notes 📝</h3>
 
     {% for note in notes %}
-        <p>{{ note.content }}</p>
+
+        <div class="note-item">
+            {{ note.content }}
+        </div>
+
     {% empty %}
-        <p>No notes available.</p>
+
+        <p class="empty-text">
+            No notes for this task yet.
+        </p>
+
     {% endfor %}
 
+</div>
 
-    <h2>SubTasks</h2>
+
+<!-- Subtasks -->
+
+<div class="detail-card">
+
+    <h3>SubTasks 🌱</h3>
 
     {% for subtask in subtasks %}
-        <p>
-            {{ subtask.title }} - {{ subtask.status }}
-        </p>
+
+        <div class="subtask-item">
+
+            <strong>
+                {{ subtask.title }}
+            </strong>
+
+            <span>
+                {{ subtask.status }}
+            </span>
+
+        </div>
+
     {% empty %}
-        <p>No subtasks available.</p>
+
+        <p class="empty-text">
+            No subtasks for this task yet.
+        </p>
+
     {% endfor %}
 
+</div>
 
-    <br>
 
-    <a href="{% url 'task_edit' task.id %}">Edit Task</a>
+<!-- Actions -->
 
-    <a href="{% url 'task_delete' task.id %}">Delete Task</a>
+<div class="task-actions">
 
-    <br>
+    <a
+        href="{% url 'task_edit' task.id %}"
+        class="edit-button"
+    >
+        Edit Task
+    </a>
 
-    <a href="{% url 'task_list' %}">Back to Tasks</a>
+    <a
+        href="{% url 'task_delete' task.id %}"
+        class="delete-button"
+    >
+        Delete Task
+    </a>
 
-</body>
-</html>
+</div>
+
+{% endblock %}

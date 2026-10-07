@@ -1,93 +1,166 @@
-{% load static %}
+{% extends "taskmanager/base.html" %}
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Hangarin - Edit Task</title>
-    <link rel="stylesheet" href="{% static 'taskmanager/style.css' %}">
-</head>
-<body>
+{% block title %}Edit Task | Hangarin{% endblock %}
 
-    <a href="{% url 'task_list' %}">All Tasks</a>
+{% block content %}
 
-    <hr>
+<div class="page-heading">
 
-    <h1>Edit Task</h1>
+    <a href="{% url 'task_detail' task.id %}" class="back-link">
+        ← Back to Task
+    </a>
+
+    <h2>Edit Task 🌷</h2>
+
+    <p>Make changes to your task below.</p>
+
+</div>
+
+
+<div class="form-card">
 
     <form method="POST">
+
         {% csrf_token %}
 
-        <p>
-            <label>Title:</label><br>
-            <input type="text" name="title" value="{{ task.title }}" required>
-        </p>
 
-        <p>
-            <label>Description:</label><br>
-            <textarea name="description" required>{{ task.description }}</textarea>
-        </p>
+        <div class="form-group">
 
-        <p>
-            <label>Deadline:</label><br>
-            <input type="datetime-local" name="deadline" value="{{ task.deadline|date:'Y-m-d\TH:i' }}" required>
-        </p>
+            <label>Task Title</label>
 
-        <p>
-            <label>Status:</label><br>
-            <select name="status">
+            <input
+                type="text"
+                name="title"
+                value="{{ task.title }}"
+                required
+            >
 
-                <option value="Pending" {% if task.status == "Pending" %}selected{% endif %}>
-                    Pending
-                </option>
+        </div>
 
-                <option value="In Progress" {% if task.status == "In Progress" %}selected{% endif %}>
-                    In Progress
-                </option>
 
-                <option value="Completed" {% if task.status == "Completed" %}selected{% endif %}>
-                    Completed
-                </option>
+        <div class="form-group">
 
-            </select>
-        </p>
+            <label>Description</label>
 
-        <p>
-            <label>Category:</label><br>
+            <textarea
+                name="description"
+                required
+            >{{ task.description }}</textarea>
 
-            <select name="category" required>
+        </div>
 
-                {% for category in categories %}
 
-                    <option value="{{ category.id }}"
-                        {% if task.category.id == category.id %}selected{% endif %}>
-                        {{ category.name }}
+        <div class="form-group">
+
+            <label>Deadline</label>
+
+            <input
+                type="datetime-local"
+                name="deadline"
+                value="{{ task.deadline|date:'Y-m-d\TH:i' }}"
+                required
+            >
+
+        </div>
+
+
+        <div class="form-row">
+
+            <div class="form-group">
+
+                <label>Status</label>
+
+                <select name="status">
+
+                    <option
+                        value="Pending"
+                        {% if task.status == "Pending" %}selected{% endif %}
+                    >
+                        Pending
                     </option>
 
-                {% endfor %}
-
-            </select>
-        </p>
-
-        <p>
-            <label>Priority:</label><br>
-
-            <select name="priority" required>
-
-                {% for priority in priorities %}
-
-                    <option value="{{ priority.id }}"
-                        {% if task.priority.id == priority.id %}selected{% endif %}>
-                        {{ priority.name }}
+                    <option
+                        value="In Progress"
+                        {% if task.status == "In Progress" %}selected{% endif %}
+                    >
+                        In Progress
                     </option>
 
-                {% endfor %}
+                    <option
+                        value="Completed"
+                        {% if task.status == "Completed" %}selected{% endif %}
+                    >
+                        Completed
+                    </option>
 
-            </select>
-        </p>
+                </select>
 
-        <button type="submit">Save Changes</button>
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Category</label>
+
+                <select name="category">
+
+                    {% for category in categories %}
+
+                        <option
+                            value="{{ category.id }}"
+                            {% if task.category.id == category.id %}selected{% endif %}
+                        >
+                            {{ category.name }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Priority</label>
+
+                <select name="priority">
+
+                    {% for priority in priorities %}
+
+                        <option
+                            value="{{ priority.id }}"
+                            {% if task.priority.id == priority.id %}selected{% endif %}
+                        >
+                            {{ priority.name }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+        </div>
+
+
+        <div class="form-actions">
+
+            <a
+                href="{% url 'task_detail' task.id %}"
+                class="cancel-button"
+            >
+                Cancel
+            </a>
+
+            <button type="submit" class="save-button">
+                Save Changes
+            </button>
+
+        </div>
 
     </form>
 
-</body>
-</html>
+</div>
+
+{% endblock %}

@@ -1,0 +1,71 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{% block title %}Hangarin{% endblock %}</title>
+
+    <link rel="stylesheet" href="{% static 'taskmanager/style.css' %}">
+
+</head>
+
+<body>
+
+    <div class="app">
+
+        <!-- Header -->
+
+        <header class="app-header">
+
+            <a href="{% url 'task_list' %}" class="brand">
+
+                <img
+                    src="{% static 'taskmanager/img/hangarin-icon.png' %}"
+                    alt="Hangarin Icon"
+                >
+
+                <div>
+                    <h1>Hangarin</h1>
+                    <p>Task & To-Do Manager</p>
+                </div>
+
+            </a>
+
+
+            <!-- Navigation -->
+
+            <nav class="app-nav">
+
+                <a href="{% url 'task_list' %}">
+                    Tasks
+                </a>
+
+                <a href="{% url 'task_create' %}">
+                    ＋ Add Task
+                </a>
+
+            </nav>
+
+        </header>
+
+
+        <!-- Page Content -->
+
+        <main class="content">
+
+            {% block content %}
+            {% endblock %}
+
+        </main>
+
+    </div>
+
+</body>
+
+</html>

@@ -1,40 +1,69 @@
-{% load static %}
+{% extends "taskmanager/base.html" %}
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Hangarin - Tasks</title>
-    <link rel="stylesheet" href="{% static 'taskmanager/style.css' %}">
-</head>
-</head>
-<body>
+{% block title %}My Tasks | Hangarin{% endblock %}
 
-    <a href="{% url 'task_list' %}">All Tasks</a>
-    <a href="{% url 'task_create' %}">Create Task</a>
+{% block content %}
 
-<hr>
+<div class="welcome">
+    <h2>My Tasks 🌷</h2>
+    <p>Keep track of the things you need to do.</p>
+</div>
 
-    <h1>My Tasks</h1>
+
+<div class="task-list">
 
     {% for task in tasks %}
-        <div class="task">
-            
-            <h2>
-                <a href="{% url 'task_detail' task.id %}">
-                    {{ task.title }}
-                </a>
-            </h2>
-            <p>{{ task.description }}</p>
-            <p>Status: {{ task.status }}</p>
-            <p>Priority: {{ task.priority }}</p>
-            <p>Category: {{ task.category }}</p>
-            <p>Deadline: {{ task.deadline }}</p>
+
+        <div class="task-card">
+
+            <a href="{% url 'task_detail' task.id %}" class="task-title">
+                {{ task.title }}
+            </a>
+
+            <p class="task-description">
+                {{ task.description }}
+            </p>
+
+            <div class="task-info">
+
+                <span class="status">
+                    {{ task.status }}
+                </span>
+
+                <span>
+                    🌷 {{ task.category }}
+                </span>
+
+                <span>
+                    ⭐ {{ task.priority }}
+                </span>
+
+                <span>
+                    📅 {{ task.deadline }}
+                </span>
+
+            </div>
+
         </div>
 
-        <hr>
     {% empty %}
-        <p>No tasks available.</p>
+
+        <div class="empty-state">
+
+            <h3>No tasks yet 🌸</h3>
+
+            <p>
+                You can add your first task using the button above.
+            </p>
+
+            <a href="{% url 'task_create' %}" class="add-button">
+                + Create Task
+            </a>
+
+        </div>
+
     {% endfor %}
 
-</body>
-</html>
+</div>
+
+{% endblock %}

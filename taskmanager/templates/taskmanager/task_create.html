@@ -1,70 +1,150 @@
-{% load static %}
+{% extends "taskmanager/base.html" %}
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Hangarin - Create Task</title>
-    <link rel="stylesheet" href="{% static 'taskmanager/style.css' %}">
-</head>
-<body>
+{% block title %}Add Task | Hangarin{% endblock %}
 
-    <a href="{% url 'task_list' %}">All Tasks</a>
+{% block content %}
 
-    <hr>
+<div class="page-heading">
 
-    <h1>Create Task</h1>
+    <a href="{% url 'task_list' %}" class="back-link">
+        ← Back to Tasks
+    </a>
+
+    <h2>Add a New Task 🌷</h2>
+
+    <p>Create something you want to accomplish.</p>
+
+</div>
+
+
+<div class="form-card">
 
     <form method="POST">
+
         {% csrf_token %}
 
-        <p>
-            <label>Title:</label><br>
-            <input type="text" name="title" required>
-        </p>
+        <div class="form-group">
 
-        <p>
-            <label>Description:</label><br>
-            <textarea name="description" required></textarea>
-        </p>
+            <label>Task Title</label>
 
-        <p>
-            <label>Deadline:</label><br>
-            <input type="datetime-local" name="deadline" required>
-        </p>
+            <input
+                type="text"
+                name="title"
+                placeholder="What do you need to do?"
+                required
+            >
 
-        <p>
-            <label>Status:</label><br>
-            <select name="status">
-                <option value="Pending">Pending</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Completed">Completed</option>
-            </select>
-        </p>
+        </div>
 
-        <p>
-            <label>Category:</label><br>
-            <select name="category" required>
-                {% for category in categories %}
-                    <option value="{{ category.id }}">
-                        {{ category.name }}
+
+        <div class="form-group">
+
+            <label>Description</label>
+
+            <textarea
+                name="description"
+                placeholder="Add some details about your task..."
+                required
+            ></textarea>
+
+        </div>
+
+
+        <div class="form-group">
+
+            <label>Deadline</label>
+
+            <input
+                type="datetime-local"
+                name="deadline"
+                required
+            >
+
+        </div>
+
+
+        <div class="form-row">
+
+            <div class="form-group">
+
+                <label>Status</label>
+
+                <select name="status">
+
+                    <option value="Pending">
+                        Pending
                     </option>
-                {% endfor %}
-            </select>
-        </p>
 
-        <p>
-            <label>Priority:</label><br>
-            <select name="priority" required>
-                {% for priority in priorities %}
-                    <option value="{{ priority.id }}">
-                        {{ priority.name }}
+                    <option value="In Progress">
+                        In Progress
                     </option>
-                {% endfor %}
-            </select>
-        </p>
 
-        <button type="submit">Create Task</button>
+                    <option value="Completed">
+                        Completed
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Category</label>
+
+                <select name="category">
+
+                    {% for category in categories %}
+
+                        <option value="{{ category.id }}">
+                            {{ category.name }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Priority</label>
+
+                <select name="priority">
+
+                    {% for priority in priorities %}
+
+                        <option value="{{ priority.id }}">
+                            {{ priority.name }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+        </div>
+
+
+        <div class="form-actions">
+
+            <a
+                href="{% url 'task_list' %}"
+                class="cancel-button"
+            >
+                Cancel
+            </a>
+
+            <button type="submit" class="save-button">
+                Create Task 🌸
+            </button>
+
+        </div>
+
     </form>
 
-</body>
-</html>
+</div>
+
+{% endblock %}
