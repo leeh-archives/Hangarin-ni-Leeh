@@ -1,0 +1,89 @@
+{% extends "taskmanager/base.html" %}
+
+{% block title %}Dashboard | Hangarin{% endblock %}
+
+{% block content %}
+
+<div class="list-heading">
+    <div class="welcome">
+        <h2>Hi, {{ user.username }} 🌷</h2>
+        <p>
+            {% if stats.total == 0 %}
+                Nothing here yet. Add your first task and we'll get going.
+            {% elif stats.overdue %}
+                {{ stats.overdue }} task{{ stats.overdue|pluralize }} past the deadline. Worth a look.
+            {% elif stats.pending or stats.in_progress %}
+                {{ stats.pending|add:stats.in_progress }} thing{{ stats.pending|add:stats.in_progress|pluralize }} still to do.
+            {% else %}
+                You're all caught up. Nice work!
+            {% endif %}
+        </p>
+    </div>
+    <a href="{% url 'task_create' %}" class="add-button">+ New task</a>
+</div>
+
+
+<div class="stat-grid">
+    <a href="{% url 'task_list' %}" class="stat-card">
+        <strong>{{ stats.total }}</strong><span>All tasks</span>
+    </a>
+    <a href="{% url 'task_list' %}?status=Pending" class="stat-card">
+        <strong>{{ stats.pending }}</strong><span>Pending</span>
+    </a>
+    <a href="{% url 'task_list' %}?status=In+Progress" class="stat-card">
+        <strong>{{ stats.in_progress }}</strong><span>In progress</span>
+    </a>
+    <a href="{% url 'task_list' %}?status=Completed" class="stat-card">
+        <strong>{{ stats.completed }}</strong><span>Completed</span>
+    </a>
+    <a href="{% url 'task_list' %}?status=Overdue" class="stat-card warn">
+        <strong>{{ stats.overdue }}</strong><span>Overdue</span>
+    </a>
+</div>
+
+<div class="stat-grid">
+    <a href="{% url 'category_list' %}" class="stat-card">
+        <strong>{{ total_categories }}</strong><span>Categories</span>
+    </a>
+    <a href="{% url 'priority_list' %}" class="stat-card">
+        <strong>{{ total_priorities }}</strong><span>Priorities</span>
+    </a>
+    <div class="stat-card">
+        <strong>{{ total_steps }}</strong><span>Steps</span>
+    </div>
+    <div class="stat-card">
+        <strong>{{ total_notes }}</strong><span>Notes</span>
+    </div>
+    <div class="stat-card">
+        <strong>{{ added_this_month }}</strong><span>Added this month</span>
+    </div>
+</div>
+
+
+<div class="detail-card">
+
+    <h3>Coming up next</h3>
+
+    {% for task in upcoming %}
+        <a href="{% url 'task_detail' task.id %}" class="upcoming-item">
+            <div>
+                <span class="upcoming-title">{{ task.title }}</span>
+                <div class="task-info">
+                    <span class="chip status-{{ task.status|slugify }}">{{ task.status }}</span>
+                    <span class="chip">🌷 {{ task.category }}</span>
+                    <span class="chip priority-{{ task.priority.name|slugify }}">⭐ {{ task.priority }}</span>
+                </div>
+            </div>
+            <span class="upcoming-when {% if task.is_overdue %}overdue-text{% endif %}">
+                {{ task.deadline|date:"M j, g:i A" }}{% if task.is_overdue %} · overdue{% endif %}
+            </span>
+        </a>
+    {% empty %}
+        <p class="empty-text">Nothing waiting on you right now.</p>
+    {% endfor %}
+
+    <p class="form-hint"><a href="{% url 'task_list' %}">See all tasks →</a></p>
+
+</div>
+
+{% endblock %}

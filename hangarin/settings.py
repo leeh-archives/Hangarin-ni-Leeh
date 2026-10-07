@@ -60,7 +60,7 @@ INSTALLED_APPS = [
     "taskmanager",
     "pwa",
 
-    # sign in with Google / GitHub
+    # login, sign up and sign in with Google / GitHub
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
@@ -84,7 +84,7 @@ ROOT_URLCONF = "hangarin.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -143,16 +143,27 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 
-# ---------------------------------------------------------------- login
+# ---------------------------------------------------------------- login (django-allauth)
 
-LOGIN_URL = "login"
-LOGIN_REDIRECT_URL = "task_list"
-LOGOUT_REDIRECT_URL = "login"
+# The Google / GitHub keys live in .env instead of the admin's "Social applications"
+# page, so we don't need the Sites app (or a SITE_ID) here.
+
+LOGIN_URL = "/accounts/login/"            # where login_required sends people
+LOGIN_REDIRECT_URL = "/"                  # after a successful login
+LOGOUT_REDIRECT_URL = "/accounts/login/"
+ACCOUNT_LOGOUT_REDIRECT_URL = "/"         # allauth's own logout redirect
+ACCOUNT_LOGOUT_ON_GET = True              # logging out doesn't ask a second time
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
+
+# you can log in with your username or your email
+ACCOUNT_LOGIN_METHODS = {"username", "email"}
+ACCOUNT_SIGNUP_FIELDS = ["username*", "email*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http" if DEBUG else "https"
 
 # Google / GitHub keys come from the environment or the .env file.
 # A button only shows up on the login page once its keys are filled in.
@@ -176,13 +187,8 @@ if GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET:
         "SCOPE": ["user:email"],
     }
 
-# normal sign-up stays username + password (our own pages); social sign-up
-# creates the account straight away, no extra form or e-mail step
-ACCOUNT_LOGIN_METHODS = {"username"}
-ACCOUNT_SIGNUP_FIELDS = ["username*", "email", "password1*", "password2*"]
-ACCOUNT_EMAIL_VERIFICATION = "none"
+# first-time Google / GitHub users get an account straight away, no extra form
 SOCIALACCOUNT_AUTO_SIGNUP = True
-ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http" if DEBUG else "https"
 
 # PythonAnywhere terminates https before Django, so trust its header
 if not DEBUG:
@@ -203,7 +209,7 @@ PWA_APP_BACKGROUND_COLOR = "#FFF5F8"
 PWA_APP_DISPLAY = "standalone"
 PWA_APP_SCOPE = "/"
 PWA_APP_ORIENTATION = "portrait"
-PWA_APP_START_URL = "/tasks/"
+PWA_APP_START_URL = "/"
 PWA_APP_STATUS_BAR_COLOR = "default"
 PWA_APP_DIR = "ltr"
 

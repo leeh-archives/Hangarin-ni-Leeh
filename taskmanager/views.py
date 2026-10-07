@@ -1,21 +1,26 @@
 from django.contrib import messages
-from django.contrib.auth import login
-from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-from django.db.models import Count, Q
-from django.http import Http404
-from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Count, F, Q
+from django.http import HttpResponseRedirect
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
+from django.views import View
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    DetailView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 
 from .forms import (
     CategoryForm,
     NoteForm,
     PriorityForm,
     ProfilePictureForm,
-    SignUpForm,
     SubTaskEditForm,
     SubTaskForm,
     TaskForm,
@@ -24,16 +29,30 @@ from .models import STATUS_CHOICES, Category, Note, Priority, Profile, SubTask, 
 
 VALID_STATUSES = [value for value, _ in STATUS_CHOICES]
 
-SORT_OPTIONS = {
-    "deadline": ("deadline", "Soonest deadline"),
-    "-deadline": ("-deadline", "Latest deadline"),
-    "-created_at": ("-created_at", "Newest first"),
-    "title": ("title", "Title A to Z"),
+# sort_by value -> (label for the dropdown, what we really order by).
+# Only keys listed here are accepted, anything else falls back to the deadline.
+TASK_SORTS = {
+    "deadline": ("Soonest deadline", ["deadline", "id"]),
+    "-deadline": ("Latest deadline", ["-deadline", "id"]),
+    "-created_at": ("Newest first", ["-created_at", "id"]),
+    "title": ("Title A to Z", ["title", "id"]),
+    "category__name": ("Category", ["category__name", "deadline", "id"]),
+    "priority__name": ("Priority name", ["priority__name", "deadline", "id"]),
 }
+DEFAULT_TASK_SORT = "deadline"
+
+OPTION_SORTS = [
+    ("", "Defaults first"),
+    ("name", "Name A to Z"),
+    ("-name", "Name Z to A"),
+    ("-created_at", "Newest first"),
+]
 
 
-def _safe_next(request, fallback):
-    """Go back to wherever the form was posted from, but only if it's our own site."""
+# ------------------------------------------------------------------ small helpers
+
+def safe_next(request, fallback):
+    """Go back to the page the form was posted from, but only if it's our own site."""
     target = request.POST.get("next", "")
     if target and url_has_allowed_host_and_scheme(
         target, allowed_hosts={request.get_host()}, require_https=request.is_secure()
@@ -42,441 +61,634 @@ def _safe_next(request, fallback):
     return fallback
 
 
-# ------------------------------------------------------------------ tasks
+class ListExtrasMixin:
+    """Puts the search text and a querystring (without page=) in the context,
+    so the pagination links keep the current search, filters and sorting."""
 
-@login_required
-def task_list(request):
-    Profile.objects.get_or_create(user=request.user)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        params = self.request.GET.copy()
+        params.pop("page", None)
+        context["q"] = self.request.GET.get("q", "").strip()
+        context["querystring"] = params.urlencode()
+        return context
 
-    mine = Task.objects.filter(user=request.user)
 
-    # the little summary cards always count everything, not just the filtered view
-    now = timezone.now()
-    stats = {
+def task_counts(user):
+    """Numbers for the summary cards (dashboard, task list and profile)."""
+    mine = Task.objects.filter(user=user)
+    return {
         "total": mine.count(),
         "pending": mine.filter(status="Pending").count(),
         "in_progress": mine.filter(status="In Progress").count(),
         "completed": mine.filter(status="Completed").count(),
-        "overdue": mine.exclude(status="Completed").filter(deadline__lt=now).count(),
+        "overdue": mine.exclude(status="Completed").filter(deadline__lt=timezone.now()).count(),
     }
 
-    search = request.GET.get("search", "").strip()
-    status = request.GET.get("status", "")
-    category = request.GET.get("category", "")
-    priority = request.GET.get("priority", "")
-    sort = request.GET.get("sort", "deadline")
-    if sort not in SORT_OPTIONS:
-        sort = "deadline"
 
-    tasks = mine.select_related("category", "priority").annotate(
-        subtask_total=Count("subtask", distinct=True),
-        subtask_done=Count("subtask", filter=Q(subtask__status="Completed"), distinct=True),
-    )
+# ------------------------------------------------------------------ dashboard
 
-    if search:
-        tasks = tasks.filter(Q(title__icontains=search) | Q(description__icontains=search))
+class HomePageView(LoginRequiredMixin, ListView):
+    model = Task
+    context_object_name = "upcoming"
+    template_name = "taskmanager/home.html"
 
-    if status == "Overdue":
-        tasks = tasks.exclude(status="Completed").filter(deadline__lt=now)
-    elif status in VALID_STATUSES:
-        tasks = tasks.filter(status=status)
-    else:
-        status = ""
+    def get_queryset(self):
+        # the next few things that still need doing
+        return (
+            super()
+            .get_queryset()
+            .filter(user=self.request.user)
+            .exclude(status="Completed")
+            .select_related("category", "priority")
+            .order_by("deadline", "id")[:5]
+        )
 
-    if category.isdigit():
-        tasks = tasks.filter(category_id=int(category))
-    else:
-        category = ""
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
 
-    if priority.isdigit():
-        tasks = tasks.filter(priority_id=int(priority))
-    else:
-        priority = ""
+        context["stats"] = task_counts(user)
+        context["total_categories"] = Category.objects.for_user(user).count()
+        context["total_priorities"] = Priority.objects.for_user(user).count()
+        context["total_steps"] = SubTask.objects.filter(parent_task__user=user).count()
+        context["total_notes"] = Note.objects.filter(task__user=user).count()
 
-    tasks = tasks.order_by(SORT_OPTIONS[sort][0], "id")
-
-    page_obj = Paginator(tasks, 8).get_page(request.GET.get("page"))
-    for t in page_obj:
-        t.progress = int(t.subtask_done * 100 / t.subtask_total) if t.subtask_total else None
-
-    params = request.GET.copy()
-    params.pop("page", None)
-
-    context = {
-        "page_obj": page_obj,
-        "stats": stats,
-        "search": search,
-        "status": status,
-        "category": category,
-        "priority": priority,
-        "sort": sort,
-        "sort_options": [(key, label) for key, (_, label) in SORT_OPTIONS.items()],
-        "status_options": VALID_STATUSES,
-        "categories": Category.objects.for_user(request.user),
-        "priorities": Priority.objects.for_user(request.user),
-        "querystring": params.urlencode(),
-        "filtering": bool(search or status or category or priority),
-    }
-    return render(request, "taskmanager/task_list.html", context)
+        today = timezone.localdate()
+        context["added_this_month"] = Task.objects.filter(
+            user=user,
+            created_at__year=today.year,
+            created_at__month=today.month,
+        ).count()
+        return context
 
 
-@login_required
-def task_detail(request, task_id):
-    task = get_object_or_404(
-        Task.objects.select_related("category", "priority"), id=task_id, user=request.user
-    )
-    subtasks = list(task.subtask_set.all())
-    done = sum(1 for s in subtasks if s.status == "Completed")
+# ------------------------------------------------------------------ tasks
 
-    context = {
-        "task": task,
-        "notes": task.note_set.all(),
-        "subtasks": subtasks,
-        "progress": int(done * 100 / len(subtasks)) if subtasks else None,
-        "subtasks_done": done,
-        "note_form": NoteForm(),
-        "subtask_form": SubTaskForm(),
-        "status_options": VALID_STATUSES,
-    }
-    return render(request, "taskmanager/task_detail.html", context)
+class TaskListView(LoginRequiredMixin, ListExtrasMixin, ListView):
+    model = Task
+    context_object_name = "tasks"
+    template_name = "taskmanager/task_list.html"
+    paginate_by = 8
+
+    def get_ordering(self):
+        sort_by = self.request.GET.get("sort_by")
+        if sort_by in TASK_SORTS:
+            return TASK_SORTS[sort_by][1]
+        return TASK_SORTS[DEFAULT_TASK_SORT][1]
+
+    def get_queryset(self):
+        qs = (
+            super()
+            .get_queryset()
+            .filter(user=self.request.user)
+            .select_related("category", "priority")
+            .annotate(
+                subtask_total=Count("subtask", distinct=True),
+                subtask_done=Count(
+                    "subtask", filter=Q(subtask__status="Completed"), distinct=True
+                ),
+            )
+        )
+
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            qs = qs.filter(
+                Q(title__icontains=query)
+                | Q(description__icontains=query)
+                | Q(category__name__icontains=query)
+                | Q(priority__name__icontains=query)
+            )
+
+        status = self.request.GET.get("status", "")
+        if status == "Overdue":
+            qs = qs.exclude(status="Completed").filter(deadline__lt=timezone.now())
+        elif status in VALID_STATUSES:
+            qs = qs.filter(status=status)
+
+        category = self.request.GET.get("category", "")
+        if category.isdigit():
+            qs = qs.filter(category_id=int(category))
+
+        priority = self.request.GET.get("priority", "")
+        if priority.isdigit():
+            qs = qs.filter(priority_id=int(priority))
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        get = self.request.GET
+
+        status = get.get("status", "")
+        if status != "Overdue" and status not in VALID_STATUSES:
+            status = ""
+        category = get.get("category", "")
+        category = category if category.isdigit() else ""
+        priority = get.get("priority", "")
+        priority = priority if priority.isdigit() else ""
+
+        sort_by = get.get("sort_by")
+        if sort_by not in TASK_SORTS:
+            sort_by = DEFAULT_TASK_SORT
+
+        # progress bar for each card on this page
+        for task in context["page_obj"]:
+            if task.subtask_total:
+                task.progress = int(task.subtask_done * 100 / task.subtask_total)
+            else:
+                task.progress = None
+
+        context.update({
+            "stats": task_counts(user),
+            "status": status,
+            "category": category,
+            "priority": priority,
+            "sort_by": sort_by,
+            "sort_options": [(key, value[0]) for key, value in TASK_SORTS.items()],
+            "categories": Category.objects.for_user(user),
+            "priorities": Priority.objects.for_user(user),
+            "filtering": bool(context["q"] or status or category or priority),
+        })
+        return context
 
 
-@login_required
-def task_create(request):
-    if request.method == "POST":
-        form = TaskForm(request.POST, user=request.user)
-        if form.is_valid():
-            task = form.save(commit=False)
-            task.user = request.user
-            task.save()
-            messages.success(request, f"“{task.title}” was added.")
-            return redirect("task_detail", task_id=task.id)
-    else:
-        form = TaskForm(user=request.user)
+class TaskDetailView(LoginRequiredMixin, DetailView):
+    model = Task
+    context_object_name = "task"
+    template_name = "taskmanager/task_detail.html"
 
-    return render(
-        request,
-        "taskmanager/task_form.html",
-        {"form": form, "heading": "Add a new task", "subheading": "What's on your plate?",
-         "button": "Create task"},
-    )
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .filter(user=self.request.user)
+            .select_related("category", "priority")
+        )
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        subtasks = list(self.object.subtask_set.all())
+        done = sum(1 for s in subtasks if s.status == "Completed")
 
-@login_required
-def task_edit(request, task_id):
-    task = get_object_or_404(Task, id=task_id, user=request.user)
-
-    if request.method == "POST":
-        form = TaskForm(request.POST, instance=task, user=request.user)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Your changes were saved.")
-            return redirect("task_detail", task_id=task.id)
-    else:
-        form = TaskForm(instance=task, user=request.user)
-
-    return render(
-        request,
-        "taskmanager/task_form.html",
-        {"form": form, "task": task, "heading": "Edit task",
-         "subheading": "Change whatever you need.", "button": "Save changes"},
-    )
+        context.update({
+            "notes": self.object.note_set.all(),
+            "subtasks": subtasks,
+            "subtasks_done": done,
+            "progress": int(done * 100 / len(subtasks)) if subtasks else None,
+            "note_form": NoteForm(),
+            "subtask_form": SubTaskForm(),
+            "status_options": VALID_STATUSES,
+        })
+        return context
 
 
-@login_required
-def task_delete(request, task_id):
-    task = get_object_or_404(Task, id=task_id, user=request.user)
+class TaskFormMixin(LoginRequiredMixin):
+    """What the add and edit pages have in common."""
+    model = Task
+    form_class = TaskForm
+    template_name = "taskmanager/task_form.html"
 
-    if request.method == "POST":
-        title = task.title
-        task.delete()
-        messages.success(request, f"“{title}” was deleted.")
-        return redirect("task_list")
+    def get_queryset(self):
+        return Task.objects.filter(user=self.request.user)
 
-    return render(request, "taskmanager/task_delete.html", {"task": task})
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def get_success_url(self):
+        return reverse("task_detail", args=[self.object.pk])
 
 
-@login_required
-@require_POST
-def task_status(request, task_id):
-    task = get_object_or_404(Task, id=task_id, user=request.user)
-    new_status = request.POST.get("status")
+class TaskCreateView(TaskFormMixin, CreateView):
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        response = super().form_valid(form)
+        messages.success(self.request, f"“{self.object.title}” was added.")
+        return response
 
-    if new_status in VALID_STATUSES:
-        task.status = new_status
-        task.save(update_fields=["status", "updated_at"])
-        messages.success(request, f"Marked as {new_status.lower()}.")
-    else:
-        messages.error(request, "That isn't a valid status.")
 
-    return redirect(_safe_next(request, reverse("task_detail", args=[task.id])))
+class TaskUpdateView(TaskFormMixin, UpdateView):
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "Your changes were saved.")
+        return response
+
+
+class TaskDeleteView(LoginRequiredMixin, DeleteView):
+    model = Task
+    context_object_name = "task"
+    template_name = "taskmanager/task_delete.html"
+    success_url = reverse_lazy("task_list")
+
+    def get_queryset(self):
+        return Task.objects.filter(user=self.request.user)
+
+    def form_valid(self, form):
+        title = self.object.title
+        response = super().form_valid(form)
+        messages.success(self.request, f"“{title}” was deleted.")
+        return response
+
+
+class TaskStatusView(LoginRequiredMixin, View):
+    """Quick status change from the list or the detail page. POST only."""
+
+    def post(self, request, pk):
+        task = get_object_or_404(Task, pk=pk, user=request.user)
+        new_status = request.POST.get("status")
+
+        if new_status in VALID_STATUSES:
+            task.status = new_status
+            task.save(update_fields=["status", "updated_at"])
+            messages.success(request, f"Marked as {new_status.lower()}.")
+        else:
+            messages.error(request, "That isn't a valid status.")
+
+        return redirect(safe_next(request, reverse("task_detail", args=[task.pk])))
 
 
 # ------------------------------------------------------------------ notes
 
-@login_required
-@require_POST
-def note_add(request, task_id):
-    task = get_object_or_404(Task, id=task_id, user=request.user)
-    form = NoteForm(request.POST)
+class NoteCreateView(LoginRequiredMixin, CreateView):
+    """The note box on the task page posts here, there's no page of its own."""
+    model = Note
+    form_class = NoteForm
+    http_method_names = ["post"]
 
-    if form.is_valid():
-        note = form.save(commit=False)
-        note.task = task
-        note.save()
-        messages.success(request, "Note added.")
-    else:
-        messages.error(request, "A note can't be empty.")
+    def post(self, request, *args, **kwargs):
+        self.task = get_object_or_404(Task, pk=kwargs["task_id"], user=request.user)
+        return super().post(request, *args, **kwargs)
 
-    return redirect("task_detail", task_id=task.id)
+    def get_success_url(self):
+        return reverse("task_detail", args=[self.task.pk])
 
+    def form_valid(self, form):
+        form.instance.task = self.task
+        messages.success(self.request, "Note added.")
+        return super().form_valid(form)
 
-@login_required
-@require_POST
-def note_delete(request, pk):
-    note = get_object_or_404(Note, pk=pk, task__user=request.user)
-    task_id = note.task_id
-    note.delete()
-    messages.success(request, "Note removed.")
-    return redirect("task_detail", task_id=task_id)
+    def form_invalid(self, form):
+        messages.error(self.request, "A note can't be empty.")
+        return HttpResponseRedirect(self.get_success_url())
 
 
-@login_required
-def note_edit(request, pk):
-    note = get_object_or_404(Note, pk=pk, task__user=request.user)
+class NoteUpdateView(LoginRequiredMixin, UpdateView):
+    model = Note
+    form_class = NoteForm
+    template_name = "taskmanager/edit_form.html"
 
-    if request.method == "POST":
-        form = NoteForm(request.POST, instance=note)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Note updated.")
-            return redirect("task_detail", task_id=note.task_id)
-    else:
-        form = NoteForm(instance=note)
+    def get_queryset(self):
+        return Note.objects.filter(task__user=self.request.user).select_related("task")
 
-    return render(request, "taskmanager/edit_form.html", {
-        "form": form,
-        "heading": "Edit note",
-        "subheading": f"On “{note.task.title}”",
-        "button": "Save note",
-        "back_url": reverse("task_detail", args=[note.task_id]),
-        "back_label": "Back to task",
-    })
+    def get_success_url(self):
+        return reverse("task_detail", args=[self.object.task_id])
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            "heading": "Edit note",
+            "subheading": f"On “{self.object.task.title}”",
+            "button": "Save note",
+            "back_url": self.get_success_url(),
+            "back_label": "Back to task",
+        })
+        return context
 
-# ------------------------------------------------------------------ subtasks
-
-@login_required
-@require_POST
-def subtask_add(request, task_id):
-    task = get_object_or_404(Task, id=task_id, user=request.user)
-    form = SubTaskForm(request.POST)
-
-    if form.is_valid():
-        sub = form.save(commit=False)
-        sub.parent_task = task
-        sub.save()
-        messages.success(request, "Step added.")
-    else:
-        messages.error(request, "Give the step a name first.")
-
-    return redirect("task_detail", task_id=task.id)
+    def form_valid(self, form):
+        messages.success(self.request, "Note updated.")
+        return super().form_valid(form)
 
 
-@login_required
-def subtask_edit(request, pk):
-    sub = get_object_or_404(SubTask, pk=pk, parent_task__user=request.user)
+class NoteDeleteView(LoginRequiredMixin, DeleteView):
+    model = Note
+    http_method_names = ["post"]
 
-    if request.method == "POST":
-        form = SubTaskEditForm(request.POST, instance=sub)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Step updated.")
-            return redirect("task_detail", task_id=sub.parent_task_id)
-    else:
-        form = SubTaskEditForm(instance=sub)
+    def get_queryset(self):
+        return Note.objects.filter(task__user=self.request.user)
 
-    return render(request, "taskmanager/edit_form.html", {
-        "form": form,
-        "heading": "Edit step",
-        "subheading": f"Part of “{sub.parent_task.title}”",
-        "button": "Save step",
-        "back_url": reverse("task_detail", args=[sub.parent_task_id]),
-        "back_label": "Back to task",
-    })
+    def get_success_url(self):
+        return reverse("task_detail", args=[self.object.task_id])
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "Note removed.")
+        return response
 
 
-@login_required
-@require_POST
-def subtask_toggle(request, pk):
-    sub = get_object_or_404(SubTask, pk=pk, parent_task__user=request.user)
-    sub.status = "Pending" if sub.status == "Completed" else "Completed"
-    sub.save(update_fields=["status", "updated_at"])
-    return redirect("task_detail", task_id=sub.parent_task_id)
+# ------------------------------------------------------------------ steps (subtasks)
+
+class SubTaskCreateView(LoginRequiredMixin, CreateView):
+    model = SubTask
+    form_class = SubTaskForm
+    http_method_names = ["post"]
+
+    def post(self, request, *args, **kwargs):
+        self.task = get_object_or_404(Task, pk=kwargs["task_id"], user=request.user)
+        return super().post(request, *args, **kwargs)
+
+    def get_success_url(self):
+        return reverse("task_detail", args=[self.task.pk])
+
+    def form_valid(self, form):
+        form.instance.parent_task = self.task
+        messages.success(self.request, "Step added.")
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Give the step a name first.")
+        return HttpResponseRedirect(self.get_success_url())
 
 
-@login_required
-@require_POST
-def subtask_delete(request, pk):
-    sub = get_object_or_404(SubTask, pk=pk, parent_task__user=request.user)
-    task_id = sub.parent_task_id
-    sub.delete()
-    messages.success(request, "Step removed.")
-    return redirect("task_detail", task_id=task_id)
+class SubTaskUpdateView(LoginRequiredMixin, UpdateView):
+    model = SubTask
+    form_class = SubTaskEditForm
+    template_name = "taskmanager/edit_form.html"
+
+    def get_queryset(self):
+        return SubTask.objects.filter(parent_task__user=self.request.user).select_related(
+            "parent_task"
+        )
+
+    def get_success_url(self):
+        return reverse("task_detail", args=[self.object.parent_task_id])
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            "heading": "Edit step",
+            "subheading": f"Part of “{self.object.parent_task.title}”",
+            "button": "Save step",
+            "back_url": self.get_success_url(),
+            "back_label": "Back to task",
+        })
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, "Step updated.")
+        return super().form_valid(form)
+
+
+class SubTaskDeleteView(LoginRequiredMixin, DeleteView):
+    model = SubTask
+    http_method_names = ["post"]
+
+    def get_queryset(self):
+        return SubTask.objects.filter(parent_task__user=self.request.user)
+
+    def get_success_url(self):
+        return reverse("task_detail", args=[self.object.parent_task_id])
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "Step removed.")
+        return response
+
+
+class SubTaskToggleView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        sub = get_object_or_404(SubTask, pk=pk, parent_task__user=request.user)
+        sub.status = "Pending" if sub.status == "Completed" else "Completed"
+        sub.save(update_fields=["status", "updated_at"])
+        return redirect("task_detail", pk=sub.parent_task_id)
 
 
 # ------------------------------------------------------------------ categories and priorities
+# These two work the same way, so the behaviour lives in the Option* classes
+# and the small CategoryInfo / PriorityInfo classes only say what's different.
+# (The form is called edit_form_class on purpose: DeleteView has its own form_class.)
 
-OPTION_KINDS = {
-    "categories": {
-        "model": Category,
-        "form": CategoryForm,
-        "title": "Categories",
-        "one": "category",
-        "icon": "🌷",
-        "intro": "Group your tasks the way you think about them.",
-        "task_field": "category",
-    },
-    "priorities": {
-        "model": Priority,
-        "form": PriorityForm,
-        "title": "Priorities",
-        "one": "priority",
-        "icon": "⭐",
-        "intro": "Decide how much each task matters.",
-        "task_field": "priority",
-    },
-}
+class CategoryInfo:
+    model = Category
+    edit_form_class = CategoryForm
+    label = "category"
+    label_plural = "categories"
+    title = "Categories"
+    icon = "🌷"
+    intro = "Group your tasks the way you think about them."
+    task_field = "category"
+    list_url = "category_list"
+    add_url = "category_create"
+    edit_url = "category_edit"
+    delete_url = "category_delete"
 
 
-def _option_config(kind):
-    config = OPTION_KINDS.get(kind)
-    if config is None:
-        raise Http404("Unknown list")
-    return config
+class PriorityInfo:
+    model = Priority
+    edit_form_class = PriorityForm
+    label = "priority"
+    label_plural = "priorities"
+    title = "Priorities"
+    icon = "⭐"
+    intro = "Decide how much each task matters."
+    task_field = "priority"
+    list_url = "priority_list"
+    add_url = "priority_create"
+    edit_url = "priority_edit"
+    delete_url = "priority_delete"
 
 
-@login_required
-def option_list(request, kind):
-    config = _option_config(kind)
-    model, form_class = config["model"], config["form"]
+class OptionListView(LoginRequiredMixin, ListExtrasMixin, ListView):
+    template_name = "taskmanager/option_list.html"
+    context_object_name = "items"
+    paginate_by = 10
 
-    if request.method == "POST":
-        form = form_class(request.POST, user=request.user)
-        if form.is_valid():
-            item = form.save(commit=False)
-            item.user = request.user
-            item.save()
-            messages.success(request, f"Added “{item.name}”.")
-            return redirect("option_list", kind=kind)
-    else:
-        form = form_class(user=request.user)
+    def get_ordering(self):
+        sort_by = self.request.GET.get("sort_by")
+        if sort_by in [key for key, _ in OPTION_SORTS if key]:
+            return [sort_by, "id"]
+        # shared defaults first, then your own, oldest first
+        return [F("user_id").asc(nulls_first=True), "id"]
 
-    items = model.objects.for_user(request.user).annotate(
-        use_count=Count("task", filter=Q(task__user=request.user))
-    )
-
-    return render(request, "taskmanager/option_list.html", {
-        "kind": kind,
-        "config": config,
-        "form": form,
-        "items": items,
-    })
-
-
-@login_required
-def option_edit(request, kind, pk):
-    config = _option_config(kind)
-    # only your own entries can be changed; the shared defaults are read-only
-    item = get_object_or_404(config["model"], pk=pk, user=request.user)
-
-    if request.method == "POST":
-        form = config["form"](request.POST, instance=item, user=request.user)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Saved.")
-            return redirect("option_list", kind=kind)
-    else:
-        form = config["form"](instance=item, user=request.user)
-
-    return render(request, "taskmanager/edit_form.html", {
-        "form": form,
-        "heading": f"Rename {config['one']}",
-        "subheading": "Tasks that use it will pick up the new name.",
-        "button": "Save",
-        "back_url": reverse("option_list", args=[kind]),
-        "back_label": f"Back to {config['title'].lower()}",
-    })
-
-
-@login_required
-@require_POST
-def option_delete(request, kind, pk):
-    config = _option_config(kind)
-    item = get_object_or_404(config["model"], pk=pk, user=request.user)
-
-    in_use = Task.objects.filter(**{config["task_field"]: item}).count()
-    if in_use:
-        messages.error(
-            request,
-            f"“{item.name}” is still used by {in_use} task{'s' if in_use != 1 else ''}. "
-            f"Switch those tasks to another {config['one']} first.",
+    def get_queryset(self):
+        user = self.request.user
+        qs = (
+            super()
+            .get_queryset()
+            .filter(Q(user__isnull=True) | Q(user=user))
+            .annotate(use_count=Count("task", filter=Q(task__user=user)))
         )
-    else:
-        name = item.name
-        item.delete()
-        messages.success(request, f"Deleted “{name}”.")
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            qs = qs.filter(name__icontains=query)
+        return qs
 
-    return redirect("option_list", kind=kind)
-
-
-# ------------------------------------------------------------------ accounts
-
-@login_required
-def profile(request):
-    profile_obj, _ = Profile.objects.get_or_create(user=request.user)
-
-    if request.method == "POST":
-        form = ProfilePictureForm(request.POST, request.FILES, instance=profile_obj)
-        if form.is_valid() and request.FILES.get("profile_picture"):
-            form.save()
-            messages.success(request, "Profile picture updated.")
-        else:
-            messages.error(request, "That file didn't work. Try a JPG or PNG image.")
-        return redirect("profile")
-
-    mine = Task.objects.filter(user=request.user)
-    total = mine.count()
-    completed = mine.filter(status="Completed").count()
-
-    context = {
-        "profile": profile_obj,
-        "task_count": total,
-        "completed_count": completed,
-        "open_count": total - completed,
-        "percent_done": int(completed * 100 / total) if total else 0,
-    }
-    return render(request, "taskmanager/profile.html", context)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        sort_by = self.request.GET.get("sort_by", "")
+        context.update({
+            "info": self,
+            "sort_by": sort_by if sort_by in dict(OPTION_SORTS) else "",
+            "sort_options": OPTION_SORTS,
+        })
+        return context
 
 
-def register(request):
-    if request.user.is_authenticated:
-        return redirect("task_list")
+class OptionFormMixin(LoginRequiredMixin):
+    template_name = "taskmanager/edit_form.html"
 
-    if request.method == "POST":
-        form = SignUpForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            # several login backends are active now, so say which one to use
-            login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-            messages.success(request, "Welcome to Hangarin! Add your first task to get started.")
-            return redirect("task_list")
-    else:
-        form = SignUpForm()
+    def get_form_class(self):
+        return self.edit_form_class
 
-    return render(request, "registration/register.html", {"form": form})
+    def get_queryset(self):
+        # only your own entries can be changed, the shared defaults are read-only
+        return self.model.objects.filter(user=self.request.user)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def get_success_url(self):
+        return reverse(self.list_url)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            "back_url": reverse(self.list_url),
+            "back_label": f"Back to {self.label_plural}",
+        })
+        return context
 
 
-def offline(request):
-    """Shown by the service worker when there's no connection."""
-    return render(request, "taskmanager/offline.html")
+class OptionCreateView(OptionFormMixin, CreateView):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            "heading": f"Add a {self.label}",
+            "subheading": "Only you will see it.",
+            "button": "Add",
+        })
+        return context
+
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        response = super().form_valid(form)
+        messages.success(self.request, f"Added “{self.object.name}”.")
+        return response
+
+
+class OptionUpdateView(OptionFormMixin, UpdateView):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            "heading": f"Rename {self.label}",
+            "subheading": "Tasks that use it will pick up the new name.",
+            "button": "Save",
+        })
+        return context
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "Saved.")
+        return response
+
+
+class OptionDeleteView(LoginRequiredMixin, DeleteView):
+    template_name = "taskmanager/option_delete.html"
+    context_object_name = "item"
+
+    def get_queryset(self):
+        return self.model.objects.filter(user=self.request.user)
+
+    def get_success_url(self):
+        return reverse(self.list_url)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["info"] = self
+        context["in_use"] = Task.objects.filter(**{self.task_field: self.object}).count()
+        return context
+
+    def form_valid(self, form):
+        in_use = Task.objects.filter(**{self.task_field: self.object}).count()
+        if in_use:
+            # tasks use PROTECT, so the delete would fail anyway
+            messages.error(
+                self.request,
+                f"“{self.object.name}” is still used by {in_use} "
+                f"task{'s' if in_use != 1 else ''}. "
+                f"Switch those tasks to another {self.label} first.",
+            )
+            return HttpResponseRedirect(self.get_success_url())
+
+        name = self.object.name
+        response = super().form_valid(form)
+        messages.success(self.request, f"Deleted “{name}”.")
+        return response
+
+
+class CategoryListView(CategoryInfo, OptionListView):
+    pass
+
+
+class CategoryCreateView(CategoryInfo, OptionCreateView):
+    pass
+
+
+class CategoryUpdateView(CategoryInfo, OptionUpdateView):
+    pass
+
+
+class CategoryDeleteView(CategoryInfo, OptionDeleteView):
+    pass
+
+
+class PriorityListView(PriorityInfo, OptionListView):
+    pass
+
+
+class PriorityCreateView(PriorityInfo, OptionCreateView):
+    pass
+
+
+class PriorityUpdateView(PriorityInfo, OptionUpdateView):
+    pass
+
+
+class PriorityDeleteView(PriorityInfo, OptionDeleteView):
+    pass
+
+
+# ------------------------------------------------------------------ profile and offline page
+
+class ProfileView(LoginRequiredMixin, UpdateView):
+    """Shows your numbers. The picture form posts back to this same page."""
+    model = Profile
+    form_class = ProfilePictureForm
+    template_name = "taskmanager/profile.html"
+    success_url = reverse_lazy("profile")
+
+    def get_object(self, queryset=None):
+        profile, _ = Profile.objects.get_or_create(user=self.request.user)
+        return profile
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        stats = task_counts(self.request.user)
+        total = stats["total"]
+        context.update({
+            "task_count": total,
+            "completed_count": stats["completed"],
+            "open_count": total - stats["completed"],
+            "percent_done": int(stats["completed"] * 100 / total) if total else 0,
+        })
+        return context
+
+    def form_valid(self, form):
+        if not self.request.FILES.get("profile_picture"):
+            return self.form_invalid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, "Profile picture updated.")
+        return response
+
+    def form_invalid(self, form):
+        messages.error(self.request, "That file didn't work. Try a JPG or PNG image.")
+        return HttpResponseRedirect(self.success_url)
+
+
+class OfflineView(TemplateView):
+    """The service worker shows this when there's no connection."""
+    template_name = "taskmanager/offline.html"

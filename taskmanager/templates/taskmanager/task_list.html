@@ -6,16 +6,14 @@
 
 <div class="list-heading">
     <div class="welcome">
-        <h2>Hi, {{ user.username }} 🌷</h2>
+        <h2>My tasks 🌷</h2>
         <p>
             {% if stats.total == 0 %}
                 Nothing here yet. Add your first task and we'll get going.
-            {% elif stats.overdue %}
-                {{ stats.overdue }} task{{ stats.overdue|pluralize }} past the deadline. Worth a look.
-            {% elif stats.pending or stats.in_progress %}
-                {{ stats.pending|add:stats.in_progress }} thing{{ stats.pending|add:stats.in_progress|pluralize }} still to do.
+            {% elif filtering %}
+                Showing {{ page_obj.paginator.count }} task{{ page_obj.paginator.count|pluralize }} that match.
             {% else %}
-                You're all caught up. Nice work!
+                {{ stats.total }} task{{ stats.total|pluralize }} in total.
             {% endif %}
         </p>
     </div>
@@ -44,7 +42,7 @@
 
 <form method="GET" class="filter-bar">
 
-    {% if search %}<input type="hidden" name="search" value="{{ search }}">{% endif %}
+    <input type="text" name="q" value="{{ q }}" placeholder="Search tasks..." aria-label="Search tasks">
     {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
 
     <select name="category" onchange="this.form.submit()" aria-label="Filter by category">
@@ -61,17 +59,17 @@
         {% endfor %}
     </select>
 
-    <select name="sort" onchange="this.form.submit()" aria-label="Sort tasks">
+    <select name="sort_by" onchange="this.form.submit()" aria-label="Sort tasks">
         {% for key, label in sort_options %}
-            <option value="{{ key }}" {% if sort == key %}selected{% endif %}>{{ label }}</option>
+            <option value="{{ key }}" {% if sort_by == key %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
     </select>
+
+    <button type="submit" class="save-button small">Search</button>
 
     {% if filtering %}
         <a href="{% url 'task_list' %}" class="clear-filters">Clear filters</a>
     {% endif %}
-
-    <noscript><button type="submit" class="save-button">Apply</button></noscript>
 </form>
 
 
@@ -136,19 +134,6 @@
 
 </div>
 
-
-{% if page_obj.has_other_pages %}
-    <nav class="pagination" aria-label="Pages">
-        {% if page_obj.has_previous %}
-            <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">← Newer</a>
-        {% endif %}
-
-        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-
-        {% if page_obj.has_next %}
-            <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">Next →</a>
-        {% endif %}
-    </nav>
-{% endif %}
+{% include "taskmanager/partials/_pagination.html" %}
 
 {% endblock %}

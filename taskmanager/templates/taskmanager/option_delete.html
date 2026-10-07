@@ -1,0 +1,39 @@
+{% extends "taskmanager/base.html" %}
+
+{% block title %}Delete {{ info.label }} | Hangarin{% endblock %}
+
+{% block content %}
+
+<div class="page-heading">
+    <a href="{% url info.list_url %}" class="back-link">← Back to {{ info.label_plural }}</a>
+    <h2>Delete this {{ info.label }}?</h2>
+</div>
+
+<div class="delete-card">
+
+    <div class="delete-icon">🗑️</div>
+
+    <h3>{{ item.name }}</h3>
+
+    {% if in_use %}
+        <p>
+            {{ in_use }} task{{ in_use|pluralize }} still use{{ in_use|pluralize:"s," }} it, so it can't be deleted yet.
+            Move {{ in_use|pluralize:"that task,those tasks" }} to another {{ info.label }} first.
+        </p>
+    {% else %}
+        <p>Nothing uses it right now. You can't undo this.</p>
+    {% endif %}
+
+    <form method="POST">
+        {% csrf_token %}
+        <div class="form-actions center">
+            <a href="{% url info.list_url %}" class="cancel-button">Keep it</a>
+            {% if not in_use %}
+                <button type="submit" class="delete-confirm-button">Yes, delete</button>
+            {% endif %}
+        </div>
+    </form>
+
+</div>
+
+{% endblock %}

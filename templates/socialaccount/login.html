@@ -1,0 +1,29 @@
+{% extends "taskmanager/base.html" %}
+
+{% block title %}Confirm sign in | Hangarin{% endblock %}
+
+{% block content %}
+
+<div class="form-page">
+
+    <div class="form-heading">
+        <h2>Confirm sign in</h2>
+        <p>You're about to sign in with your {{ provider.name|default:"social" }} account.</p>
+    </div>
+
+    <div class="form-card">
+
+        <form method="POST">
+            {% csrf_token %}
+            <button type="submit" class="save-button wide">Continue with {{ provider.name|default:"your account" }}</button>
+        </form>
+
+        <p class="form-footer">
+            <a href="{% url 'account_login' %}">Cancel</a>
+        </p>
+
+    </div>
+
+</div>
+
+{% endblock %}

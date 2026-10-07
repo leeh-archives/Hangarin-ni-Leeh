@@ -6,9 +6,13 @@ smaller steps. It can also be installed on your phone like an app (PWA).
 
 ## What's in it
 
-- Sign up, log in, and a profile page with a picture
-- Dashboard with counts for pending, in progress, completed and overdue tasks
-- Search, filter (status, category, priority) and sort your tasks
+- Sign up and log in with django-allauth (username or email), plus a profile page with a picture
+- Dashboard (the home page) with counts for tasks, categories, priorities, steps and notes,
+  and the next few things that are due
+- Everything is built with class-based views: list, add, edit and delete pages for tasks,
+  categories and priorities, and edit/delete for notes and steps
+- Search on every list (tasks, categories, priorities)
+- Filter tasks (status, category, priority) and sort them (deadline, title, category, priority)
 - One-click "Done" on the list, or switch status from the task page
 - Steps (subtasks) with a progress bar, plus notes on every task, all editable
 - Your own categories and priorities: add, rename and delete them from the sidebar
@@ -31,7 +35,7 @@ hangarinenv\Scripts\activate          # Windows
 # 2. install packages
 pip install -r requirements.txt
 
-# 3. create the database
+# 3. create the database (run this again after pulling new changes)
 python manage.py migrate
 
 # 4. add the starter priorities and categories
@@ -47,8 +51,8 @@ python manage.py generate_data --count 10
 python manage.py runserver
 ```
 
-Then open http://127.0.0.1:8000/ for the app, or http://127.0.0.1:8000/admin/
-for the admin site.
+Then open http://127.0.0.1:8000/ for the dashboard, or http://127.0.0.1:8000/admin/
+for the admin site. You'll be sent to the login page first.
 
 `generate_data` gives the tasks to the first account by default. Use
 `--user yourname` to pick someone else.
@@ -60,10 +64,21 @@ and **Priorities** pages and rename or delete them later. A category or priority
 that's still used by a task can't be deleted (so tasks never disappear by
 accident), so move those tasks first.
 
+### Logging in
+
+Login, sign up, logout and password reset are handled by django-allauth under
+`/accounts/`. You can log in with your username or your email. Sign up asks for a
+username, email and password. Logging out is one click (`ACCOUNT_LOGOUT_ON_GET`).
+The login and sign-up pages are in `templates/account/`.
+
+Password reset emails are printed in the terminal while `EMAIL_BACKEND` is the
+console backend. Put real SMTP settings in `settings.py` if you want them to be sent.
+
 ### Sign in with Google and GitHub
 
 The buttons only appear once the keys are filled in, so the app works fine
-without them. Copy `.env.example` to `.env` (same folder as `manage.py`) and
+without them. The keys are read from `.env`, so you don't need to add anything
+under *Social applications* in the admin. Copy `.env.example` to `.env` (same folder as `manage.py`) and
 fill in the values.
 
 **Google**
@@ -88,10 +103,21 @@ keys in the `.env` file on the server.
 
 First-time Google or GitHub users get an account created automatically.
 
+### Searching and sorting
+
+Every list has a search box that uses `?q=`. On the task list it looks at the title,
+description, category and priority. The categories and priorities pages search by name.
+
+Sorting uses `?sort_by=` and only accepts the options in the dropdown, anything else
+falls back to the default (soonest deadline for tasks, shared defaults first for
+categories and priorities). The page links keep your search and sort when you go to
+the next page.
+
 ### Installing it as an app (PWA)
 
-django-pwa is already set up (manifest, icons, service worker). Open the site in
-Chrome or Edge and use the "Install app" button in the sidebar, or the browser's
+django-pwa is already set up (manifest, icons, service worker, and
+`{% progressive_web_app_meta %}` in the base template). The app opens on the
+dashboard. Open the site in Chrome or Edge and use the "Install app" button in the sidebar, or the browser's
 own install option. In DevTools, *Application → Manifest* shows the name and
 icons. If the connection drops, the app shows a short offline page instead of an
 error. Task pages are never cached, so you won't see stale data. Note that
@@ -190,10 +216,12 @@ environment wins over `.env`.
 
 ```
 hangarin/            project settings and root urls
+templates/           login, sign-up and social confirm pages (allauth overrides)
 taskmanager/
     models.py        Priority, Category, Task, Note, SubTask, Profile
-    forms.py         task, note, subtask, category, priority and sign-up forms
-    views.py         dashboard, tasks, notes, steps, categories, priorities, profile
+    forms.py         task, note, subtask, category, priority and picture forms
+    views.py         class-based views: dashboard, tasks, notes, steps,
+                     categories, priorities, profile
     context_processors.py   tells templates which social buttons to show
     admin.py         admin configuration
     management/      seed_basics and generate_data commands

@@ -22,7 +22,7 @@
 
     <aside class="sidebar">
 
-        <a href="{% url 'task_list' %}" class="sidebar-brand">
+        <a href="{% url 'home' %}" class="sidebar-brand">
             <img src="{% static 'taskmanager/img/icon-192x192.png' %}" alt="Hangarin logo">
             <div>
                 <h1>Hangarin</h1>
@@ -46,6 +46,10 @@
 
         <nav class="sidebar-nav">
             {% with current=request.resolver_match.url_name %}
+            <a href="{% url 'home' %}"
+               class="sidebar-link {% if current == 'home' %}active{% endif %}">
+                <span class="sidebar-icon">⌂</span><span>Dashboard</span>
+            </a>
             <a href="{% url 'task_list' %}"
                class="sidebar-link {% if current == 'task_list' or current == 'task_detail' or current == 'task_edit' or current == 'task_delete' or current == 'note_edit' or current == 'subtask_edit' %}active{% endif %}">
                 <span class="sidebar-icon">◉</span><span>My Tasks</span>
@@ -54,12 +58,12 @@
                class="sidebar-link {% if current == 'task_create' %}active{% endif %}">
                 <span class="sidebar-icon">＋</span><span>Add Task</span>
             </a>
-            <a href="{% url 'option_list' 'categories' %}"
-               class="sidebar-link {% if current == 'option_list' and request.resolver_match.kwargs.kind == 'categories' %}active{% endif %}">
+            <a href="{% url 'category_list' %}"
+               class="sidebar-link {% if current == 'category_list' or current == 'category_create' or current == 'category_edit' or current == 'category_delete' %}active{% endif %}">
                 <span class="sidebar-icon">🌷</span><span>Categories</span>
             </a>
-            <a href="{% url 'option_list' 'priorities' %}"
-               class="sidebar-link {% if current == 'option_list' and request.resolver_match.kwargs.kind == 'priorities' %}active{% endif %}">
+            <a href="{% url 'priority_list' %}"
+               class="sidebar-link {% if current == 'priority_list' or current == 'priority_create' or current == 'priority_edit' or current == 'priority_delete' %}active{% endif %}">
                 <span class="sidebar-icon">⭐</span><span>Priorities</span>
             </a>
             <a href="{% url 'profile' %}"
@@ -73,7 +77,7 @@
             <button type="button" id="install-app" class="sidebar-logout" hidden>
                 <span class="sidebar-icon">⬇</span><span>Install app</span>
             </button>
-            <form method="POST" action="{% url 'logout' %}">
+            <form method="POST" action="{% url 'account_logout' %}">
                 {% csrf_token %}
                 <button type="submit" class="sidebar-logout">
                     <span class="sidebar-icon">⎋</span><span>Log out</span>
@@ -90,10 +94,11 @@
             <div class="search-box">
                 <span>🔍</span>
                 <form method="GET" action="{% url 'task_list' %}">
-                    <input type="text" name="search" placeholder="Search your tasks..."
-                           value="{{ search|default:'' }}" aria-label="Search your tasks">
+                    <input type="text" name="q" placeholder="Search your tasks..."
+                           value="{% if request.resolver_match.url_name == 'task_list' %}{{ q|default:'' }}{% endif %}"
+                           aria-label="Search your tasks">
                 </form>
-                {% if search %}
+                {% if request.resolver_match.url_name == 'task_list' and q %}
                     <a href="{% url 'task_list' %}" class="search-clear" title="Clear search">✕</a>
                 {% endif %}
             </div>

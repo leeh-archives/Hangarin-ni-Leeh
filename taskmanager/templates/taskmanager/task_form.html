@@ -1,17 +1,19 @@
 {% extends "taskmanager/base.html" %}
 
-{% block title %}{{ heading }} | Hangarin{% endblock %}
+{% block title %}{% if object %}Edit task{% else %}Add task{% endif %} | Hangarin{% endblock %}
 
 {% block content %}
 
 <div class="page-heading">
-    {% if task %}
-        <a href="{% url 'task_detail' task.id %}" class="back-link">← Back to task</a>
+    {% if object %}
+        <a href="{% url 'task_detail' object.id %}" class="back-link">← Back to task</a>
+        <h2>Edit task 🌷</h2>
+        <p>Change whatever you need.</p>
     {% else %}
         <a href="{% url 'task_list' %}" class="back-link">← Back to tasks</a>
+        <h2>Add a new task 🌷</h2>
+        <p>What's on your plate?</p>
     {% endif %}
-    <h2>{{ heading }} 🌷</h2>
-    <p>{{ subheading }}</p>
 </div>
 
 
@@ -37,17 +39,17 @@
 
         <p class="form-hint">
             Need something different? Manage your
-            <a href="{% url 'option_list' 'categories' %}">categories</a> or
-            <a href="{% url 'option_list' 'priorities' %}">priorities</a>.
+            <a href="{% url 'category_list' %}">categories</a> or
+            <a href="{% url 'priority_list' %}">priorities</a>.
         </p>
 
         <div class="form-actions">
-            {% if task %}
-                <a href="{% url 'task_detail' task.id %}" class="cancel-button">Cancel</a>
+            {% if object %}
+                <a href="{% url 'task_detail' object.id %}" class="cancel-button">Cancel</a>
             {% else %}
                 <a href="{% url 'task_list' %}" class="cancel-button">Cancel</a>
             {% endif %}
-            <button type="submit" class="save-button">{{ button }}</button>
+            <button type="submit" class="save-button">{% if object %}Save changes{% else %}Create task{% endif %}</button>
         </div>
 
     </form>

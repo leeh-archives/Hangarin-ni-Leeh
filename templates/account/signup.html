@@ -1,0 +1,46 @@
+{% extends "taskmanager/base.html" %}
+
+{% block title %}Sign up | Hangarin{% endblock %}
+
+{% block content %}
+
+<div class="form-page">
+
+    <div class="form-heading">
+        <h2>Create your account 🌸</h2>
+        <p>It only takes a minute.</p>
+    </div>
+
+    <div class="form-card">
+
+        <form method="POST" action="{% url 'account_signup' %}" novalidate>
+
+            {% csrf_token %}
+            {% if redirect_field_value %}
+                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+            {% endif %}
+
+            {% if form.non_field_errors %}
+                <p class="form-error">{{ form.non_field_errors|join:" " }}</p>
+            {% endif %}
+
+            {% include "taskmanager/partials/_field.html" with field=form.username %}
+            {% include "taskmanager/partials/_field.html" with field=form.email %}
+            {% include "taskmanager/partials/_field.html" with field=form.password1 %}
+            {% include "taskmanager/partials/_field.html" with field=form.password2 %}
+
+            <button type="submit" class="save-button wide">Sign up</button>
+
+        </form>
+
+        {% include "taskmanager/partials/_social_buttons.html" %}
+
+        <p class="form-footer">
+            Already have an account? <a href="{% url 'account_login' %}">Log in</a>
+        </p>
+
+    </div>
+
+</div>
+
+{% endblock %}

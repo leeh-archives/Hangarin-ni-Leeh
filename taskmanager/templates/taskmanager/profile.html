@@ -37,6 +37,7 @@
 <div class="detail-card">
     <h3>Account</h3>
     <p><strong>Username</strong><br>{{ user.username }}</p>
+    {% if user.email %}<p><strong>Email</strong><br>{{ user.email }}</p>{% endif %}
     <p><strong>Joined</strong><br>{{ user.date_joined|date:"F j, Y" }}</p>
 </div>
 
@@ -62,7 +63,7 @@
 
 
 <div class="task-actions">
-    <a href="{% url 'task_list' %}" class="edit-button">← Back to tasks</a>
+    <a href="{% url 'home' %}" class="edit-button">← Back to dashboard</a>
 </div>
 
 {% endblock %}

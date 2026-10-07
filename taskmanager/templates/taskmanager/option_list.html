@@ -1,35 +1,38 @@
 {% extends "taskmanager/base.html" %}
 
-{% block title %}{{ config.title }} | Hangarin{% endblock %}
+{% block title %}{{ info.title }} | Hangarin{% endblock %}
 
 {% block content %}
 
-<div class="page-heading">
-    <h2>{{ config.title }} {{ config.icon }}</h2>
-    <p>{{ config.intro }}</p>
+<div class="list-heading">
+    <div class="welcome">
+        <h2>{{ info.title }} {{ info.icon }}</h2>
+        <p>{{ info.intro }}</p>
+    </div>
+    <a href="{% url info.add_url %}" class="add-button">+ Add {{ info.label }}</a>
 </div>
 
 
+<form method="GET" class="filter-bar">
+
+    <input type="text" name="q" value="{{ q }}" placeholder="Search {{ info.label_plural }}..."
+           aria-label="Search {{ info.label_plural }}">
+
+    <select name="sort_by" onchange="this.form.submit()" aria-label="Sort {{ info.label_plural }}">
+        {% for key, label in sort_options %}
+            <option value="{{ key }}" {% if sort_by == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+
+    <button type="submit" class="save-button small">Search</button>
+
+    {% if q or sort_by %}
+        <a href="{% url info.list_url %}" class="clear-filters">Clear</a>
+    {% endif %}
+</form>
+
+
 <div class="detail-card">
-
-    <h3>Add a {{ config.one }}</h3>
-
-    <form method="POST" class="inline-add">
-        {% csrf_token %}
-        {{ form.name }}
-        <button type="submit" class="save-button">Add</button>
-    </form>
-
-    {% for error in form.name.errors %}
-        <p class="field-error">{{ error }}</p>
-    {% endfor %}
-
-</div>
-
-
-<div class="detail-card">
-
-    <h3>Your {{ config.title|lower }}</h3>
 
     {% for item in items %}
         <div class="option-item">
@@ -46,25 +49,25 @@
 
             {% if item.user_id is not None %}
                 <div class="row-actions">
-                    <a href="{% url 'option_edit' kind item.id %}" class="mini-button">Rename</a>
-                    <form method="POST" action="{% url 'option_delete' kind item.id %}"
-                          onsubmit="return confirm('Delete {{ item.name|escapejs }}?');">
-                        {% csrf_token %}
-                        <button type="submit" class="mini-button danger">Delete</button>
-                    </form>
+                    <a href="{% url info.edit_url item.id %}" class="mini-button">Rename</a>
+                    <a href="{% url info.delete_url item.id %}" class="mini-button danger">Delete</a>
                 </div>
             {% endif %}
 
         </div>
     {% empty %}
-        <p class="empty-text">Nothing here yet.</p>
+        <p class="empty-text">
+            {% if q %}Nothing called “{{ q }}”.{% else %}Nothing here yet.{% endif %}
+        </p>
     {% endfor %}
 
     <p class="form-hint">
         Defaults are shared with everyone and can't be changed. Anything you add is only yours.
-        A {{ config.one }} that's still used by a task can't be deleted until you move those tasks.
+        A {{ info.label }} that's still used by a task can't be deleted until you move those tasks.
     </p>
 
 </div>
+
+{% include "taskmanager/partials/_pagination.html" %}
 
 {% endblock %}

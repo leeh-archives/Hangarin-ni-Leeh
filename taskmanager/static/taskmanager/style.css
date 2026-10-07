@@ -1307,3 +1307,90 @@ a.mini-button {
         flex-direction: column;
     }
 }
+
+
+/* ---------------------------------------------------------- dashboard, search bars, login extras */
+
+.upcoming-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    background-color: #fff7f9;
+    border-radius: 10px;
+    text-decoration: none;
+}
+
+.upcoming-item:hover {
+    background-color: var(--pink-light);
+}
+
+.upcoming-title {
+    font-weight: bold;
+    overflow-wrap: anywhere;
+}
+
+.upcoming-item .task-info {
+    margin-top: 6px;
+}
+
+.upcoming-when {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.upcoming-when.overdue-text {
+    color: #c0392b;
+}
+
+.filter-bar input[type="text"] {
+    flex: 1;
+    min-width: 160px;
+    padding: 8px 12px;
+    border: 1px solid #ecced8;
+    border-radius: 8px;
+    background-color: #fffafb;
+    color: #5c454d;
+    font-size: 13px;
+}
+
+.filter-bar input[type="text"]:focus {
+    outline: none;
+    border-color: var(--pink);
+}
+
+.save-button.small {
+    padding: 8px 14px;
+    font-size: 13px;
+}
+
+.remember-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 4px 0 16px;
+    font-size: 13px;
+    color: var(--ink-soft);
+}
+
+.remember-row label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.remember-row a {
+    color: var(--pink-deep);
+}
+
+@media (max-width: 600px) {
+
+    .upcoming-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
