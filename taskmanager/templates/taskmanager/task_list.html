@@ -4,66 +4,151 @@
 
 {% block content %}
 
-<div class="welcome">
-    <h2>My Tasks 🌷</h2>
-    <p>Keep track of the things you need to do.</p>
+<div class="list-heading">
+    <div class="welcome">
+        <h2>Hi, {{ user.username }} 🌷</h2>
+        <p>
+            {% if stats.total == 0 %}
+                Nothing here yet. Add your first task and we'll get going.
+            {% elif stats.overdue %}
+                {{ stats.overdue }} task{{ stats.overdue|pluralize }} past the deadline. Worth a look.
+            {% elif stats.pending or stats.in_progress %}
+                {{ stats.pending|add:stats.in_progress }} thing{{ stats.pending|add:stats.in_progress|pluralize }} still to do.
+            {% else %}
+                You're all caught up. Nice work!
+            {% endif %}
+        </p>
+    </div>
+    <a href="{% url 'task_create' %}" class="add-button">+ New task</a>
 </div>
+
+
+<div class="stat-grid">
+    <a href="{% url 'task_list' %}" class="stat-card {% if not status %}current{% endif %}">
+        <strong>{{ stats.total }}</strong><span>All tasks</span>
+    </a>
+    <a href="?status=Pending" class="stat-card {% if status == 'Pending' %}current{% endif %}">
+        <strong>{{ stats.pending }}</strong><span>Pending</span>
+    </a>
+    <a href="?status=In+Progress" class="stat-card {% if status == 'In Progress' %}current{% endif %}">
+        <strong>{{ stats.in_progress }}</strong><span>In progress</span>
+    </a>
+    <a href="?status=Completed" class="stat-card {% if status == 'Completed' %}current{% endif %}">
+        <strong>{{ stats.completed }}</strong><span>Completed</span>
+    </a>
+    <a href="?status=Overdue" class="stat-card warn {% if status == 'Overdue' %}current{% endif %}">
+        <strong>{{ stats.overdue }}</strong><span>Overdue</span>
+    </a>
+</div>
+
+
+<form method="GET" class="filter-bar">
+
+    {% if search %}<input type="hidden" name="search" value="{{ search }}">{% endif %}
+    {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+
+    <select name="category" onchange="this.form.submit()" aria-label="Filter by category">
+        <option value="">All categories</option>
+        {% for c in categories %}
+            <option value="{{ c.id }}" {% if category == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="priority" onchange="this.form.submit()" aria-label="Filter by priority">
+        <option value="">All priorities</option>
+        {% for p in priorities %}
+            <option value="{{ p.id }}" {% if priority == p.id|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="sort" onchange="this.form.submit()" aria-label="Sort tasks">
+        {% for key, label in sort_options %}
+            <option value="{{ key }}" {% if sort == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+
+    {% if filtering %}
+        <a href="{% url 'task_list' %}" class="clear-filters">Clear filters</a>
+    {% endif %}
+
+    <noscript><button type="submit" class="save-button">Apply</button></noscript>
+</form>
 
 
 <div class="task-list">
 
-    {% for task in tasks %}
+    {% for task in page_obj %}
 
-        <div class="task-card">
+        <div class="task-card {% if task.is_overdue %}is-overdue{% endif %}">
 
-            <a href="{% url 'task_detail' task.id %}" class="task-title">
-                {{ task.title }}
-            </a>
+            <div class="task-card-top">
+                <a href="{% url 'task_detail' task.id %}" class="task-title">{{ task.title }}</a>
 
-            <p class="task-description">
-                {{ task.description }}
-            </p>
+                {% if task.status != "Completed" %}
+                    <form method="POST" action="{% url 'task_status' task.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="status" value="Completed">
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit" class="mini-button" title="Mark this task as done">✓ Done</button>
+                    </form>
+                {% endif %}
+            </div>
+
+            {% if task.description %}
+                <p class="task-description">{{ task.description|truncatechars:140 }}</p>
+            {% endif %}
 
             <div class="task-info">
-
-                <span class="status">
-                    {{ task.status }}
+                <span class="chip status-{{ task.status|slugify }}">{{ task.status }}</span>
+                <span class="chip priority-{{ task.priority.name|slugify }}">⭐ {{ task.priority }}</span>
+                <span class="chip">🌷 {{ task.category }}</span>
+                <span class="chip {% if task.is_overdue %}overdue{% endif %}">
+                    📅 {{ task.deadline|date:"M j, Y, g:i A" }}{% if task.is_overdue %} · overdue{% endif %}
                 </span>
-
-                <span>
-                    🌷 {{ task.category }}
-                </span>
-
-                <span>
-                    ⭐ {{ task.priority }}
-                </span>
-
-                <span>
-                    📅 {{ task.deadline }}
-                </span>
-
+                {% if task.subtask_total %}
+                    <span class="chip">☑ {{ task.subtask_done }}/{{ task.subtask_total }} steps</span>
+                {% endif %}
             </div>
+
+            {% if task.progress is not None %}
+                <div class="progress" title="{{ task.progress }}% of steps done">
+                    <div class="progress-bar" style="width: {{ task.progress }}%"></div>
+                </div>
+            {% endif %}
 
         </div>
 
     {% empty %}
 
         <div class="empty-state">
-
-            <h3>No tasks yet 🌸</h3>
-
-            <p>
-                You can add your first task using the button above.
-            </p>
-
-            <a href="{% url 'task_create' %}" class="add-button">
-                + Create Task
-            </a>
-
+            {% if filtering %}
+                <h3>Nothing matches that 🌸</h3>
+                <p>Try a different search or clear the filters.</p>
+                <a href="{% url 'task_list' %}" class="add-button">Clear filters</a>
+            {% else %}
+                <h3>No tasks yet 🌸</h3>
+                <p>Add your first one. Even a tiny task counts.</p>
+                <a href="{% url 'task_create' %}" class="add-button">+ Create task</a>
+            {% endif %}
         </div>
 
     {% endfor %}
 
 </div>
+
+
+{% if page_obj.has_other_pages %}
+    <nav class="pagination" aria-label="Pages">
+        {% if page_obj.has_previous %}
+            <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">← Newer</a>
+        {% endif %}
+
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+            <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">Next →</a>
+        {% endif %}
+    </nav>
+{% endif %}
 
 {% endblock %}

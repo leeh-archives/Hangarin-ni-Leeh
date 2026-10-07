@@ -1,0 +1,32 @@
+{% extends "taskmanager/base.html" %}
+
+{% block title %}{{ heading }} | Hangarin{% endblock %}
+
+{% block content %}
+
+<div class="page-heading">
+    <a href="{{ back_url }}" class="back-link">← {{ back_label }}</a>
+    <h2>{{ heading }}</h2>
+    <p>{{ subheading }}</p>
+</div>
+
+<div class="form-card">
+
+    <form method="POST" novalidate>
+
+        {% csrf_token %}
+
+        {% for field in form %}
+            {% include "taskmanager/partials/_field.html" with field=field %}
+        {% endfor %}
+
+        <div class="form-actions">
+            <a href="{{ back_url }}" class="cancel-button">Cancel</a>
+            <button type="submit" class="save-button">{{ button }}</button>
+        </div>
+
+    </form>
+
+</div>
+
+{% endblock %}

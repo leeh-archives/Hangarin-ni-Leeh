@@ -1,0 +1,68 @@
+{% extends "taskmanager/base.html" %}
+
+{% block title %}Profile | Hangarin{% endblock %}
+
+{% block content %}
+
+<div class="page-heading">
+    <h2>Your profile 🌸</h2>
+    <p>A quick look at your account and how you're doing.</p>
+</div>
+
+
+<div class="detail-card">
+
+    <div class="profile-picture-section">
+
+        {% if profile.profile_picture %}
+            <img src="{{ profile.profile_picture.url }}" alt="Your photo" class="profile-picture">
+        {% else %}
+            <div class="profile-picture-placeholder">{{ user.username|slice:":1"|upper }}</div>
+        {% endif %}
+
+        <h3>{{ user.username }}</h3>
+
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            <label for="profile_picture" class="edit-button">Change picture</label>
+            <input type="file" name="profile_picture" id="profile_picture" accept="image/*"
+                   class="hidden-input" onchange="this.form.submit()">
+        </form>
+
+    </div>
+
+</div>
+
+
+<div class="detail-card">
+    <h3>Account</h3>
+    <p><strong>Username</strong><br>{{ user.username }}</p>
+    <p><strong>Joined</strong><br>{{ user.date_joined|date:"F j, Y" }}</p>
+</div>
+
+
+<div class="detail-card">
+
+    <h3>Your progress 🌷</h3>
+
+    {% if task_count %}
+        <div class="progress"><div class="progress-bar" style="width: {{ percent_done }}%"></div></div>
+        <p>{{ percent_done }}% of your tasks are finished.</p>
+    {% else %}
+        <p class="empty-text">You haven't added any tasks yet.</p>
+    {% endif %}
+
+    <div class="detail-info">
+        <span>Total: {{ task_count }}</span>
+        <span>Completed: {{ completed_count }}</span>
+        <span>Still open: {{ open_count }}</span>
+    </div>
+
+</div>
+
+
+<div class="task-actions">
+    <a href="{% url 'task_list' %}" class="edit-button">← Back to tasks</a>
+</div>
+
+{% endblock %}

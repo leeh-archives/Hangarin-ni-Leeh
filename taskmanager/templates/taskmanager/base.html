@@ -1,13 +1,10 @@
 {% load static %}
 {% load pwa %}
-
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>{% block title %}Hangarin{% endblock %}</title>
@@ -15,60 +12,128 @@
     <link rel="stylesheet" href="{% static 'taskmanager/style.css' %}">
 
     {% progressive_web_app_meta %}
-
 </head>
 
 <body>
 
-    <div class="app">
+<div class="{% if user.is_authenticated %}dashboard{% else %}app auth-page{% endif %}">
 
-        <!-- Header -->
+    {% if user.is_authenticated %}
 
-        <header class="app-header">
+    <aside class="sidebar">
 
-            <a href="{% url 'task_list' %}" class="brand">
+        <a href="{% url 'task_list' %}" class="sidebar-brand">
+            <img src="{% static 'taskmanager/img/icon-192x192.png' %}" alt="Hangarin logo">
+            <div>
+                <h1>Hangarin</h1>
+                <p>Task Manager</p>
+            </div>
+        </a>
 
-                <img
-                    src="{% static 'taskmanager/img/hangarin-icon.png' %}"
-                    alt="Hangarin Icon"
-                >
-
-                <div>
-                    <h1>Hangarin</h1>
-                    <p>Task & To-Do Manager</p>
+        <div class="sidebar-user">
+            <a href="{% url 'profile' %}" class="sidebar-user-link">
+                {% if user.profile.profile_picture %}
+                    <img src="{{ user.profile.profile_picture.url }}" alt="Your photo" class="sidebar-avatar">
+                {% else %}
+                    <div class="sidebar-avatar-placeholder">{{ user.username|slice:":1"|upper }}</div>
+                {% endif %}
+                <div class="sidebar-user-info">
+                    <strong>{{ user.username }}</strong>
+                    <span>View profile</span>
                 </div>
-
             </a>
+        </div>
 
+        <nav class="sidebar-nav">
+            {% with current=request.resolver_match.url_name %}
+            <a href="{% url 'task_list' %}"
+               class="sidebar-link {% if current == 'task_list' or current == 'task_detail' or current == 'task_edit' or current == 'task_delete' or current == 'note_edit' or current == 'subtask_edit' %}active{% endif %}">
+                <span class="sidebar-icon">◉</span><span>My Tasks</span>
+            </a>
+            <a href="{% url 'task_create' %}"
+               class="sidebar-link {% if current == 'task_create' %}active{% endif %}">
+                <span class="sidebar-icon">＋</span><span>Add Task</span>
+            </a>
+            <a href="{% url 'option_list' 'categories' %}"
+               class="sidebar-link {% if current == 'option_list' and request.resolver_match.kwargs.kind == 'categories' %}active{% endif %}">
+                <span class="sidebar-icon">🌷</span><span>Categories</span>
+            </a>
+            <a href="{% url 'option_list' 'priorities' %}"
+               class="sidebar-link {% if current == 'option_list' and request.resolver_match.kwargs.kind == 'priorities' %}active{% endif %}">
+                <span class="sidebar-icon">⭐</span><span>Priorities</span>
+            </a>
+            <a href="{% url 'profile' %}"
+               class="sidebar-link {% if current == 'profile' %}active{% endif %}">
+                <span class="sidebar-icon">☺</span><span>Profile</span>
+            </a>
+            {% endwith %}
+        </nav>
 
-            <!-- Navigation -->
+        <div class="sidebar-bottom">
+            <button type="button" id="install-app" class="sidebar-logout" hidden>
+                <span class="sidebar-icon">⬇</span><span>Install app</span>
+            </button>
+            <form method="POST" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="sidebar-logout">
+                    <span class="sidebar-icon">⎋</span><span>Log out</span>
+                </button>
+            </form>
+        </div>
 
-            <nav class="app-nav">
+    </aside>
 
-                <a href="{% url 'task_list' %}">
-                    Tasks
+    <div class="dashboard-main">
+
+        <header class="top-navbar">
+
+            <div class="search-box">
+                <span>🔍</span>
+                <form method="GET" action="{% url 'task_list' %}">
+                    <input type="text" name="search" placeholder="Search your tasks..."
+                           value="{{ search|default:'' }}" aria-label="Search your tasks">
+                </form>
+                {% if search %}
+                    <a href="{% url 'task_list' %}" class="search-clear" title="Clear search">✕</a>
+                {% endif %}
+            </div>
+
+            <div class="top-user">
+                <a href="{% url 'profile' %}" class="top-user-link">
+                    {% if user.profile.profile_picture %}
+                        <img src="{{ user.profile.profile_picture.url }}" alt="Your photo" class="top-avatar">
+                    {% else %}
+                        <div class="top-avatar-placeholder">{{ user.username|slice:":1"|upper }}</div>
+                    {% endif %}
+                    <span>{{ user.username }}</span>
                 </a>
-
-                <a href="{% url 'task_create' %}">
-                    ＋ Add Task
-                </a>
-
-            </nav>
+            </div>
 
         </header>
 
-
-        <!-- Page Content -->
+    {% endif %}
 
         <main class="content">
 
-            {% block content %}
-            {% endblock %}
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                        <div class="message {{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% block content %}{% endblock %}
 
         </main>
 
+    {% if user.is_authenticated %}
     </div>
+    {% endif %}
+
+</div>
+
+<script src="{% static 'taskmanager/pwa-install.js' %}"></script>
 
 </body>
-
 </html>

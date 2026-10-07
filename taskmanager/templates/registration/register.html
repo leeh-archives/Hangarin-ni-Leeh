@@ -1,0 +1,38 @@
+{% extends "taskmanager/base.html" %}
+
+{% block title %}Sign up | Hangarin{% endblock %}
+
+{% block content %}
+
+<div class="form-page">
+
+    <div class="form-heading">
+        <h2>Create your account 🌸</h2>
+        <p>It only takes a minute.</p>
+    </div>
+
+    <div class="form-card">
+
+        <form method="POST" novalidate>
+
+            {% csrf_token %}
+
+            {% include "taskmanager/partials/_field.html" with field=form.username %}
+            {% include "taskmanager/partials/_field.html" with field=form.password1 %}
+            {% include "taskmanager/partials/_field.html" with field=form.password2 %}
+
+            <button type="submit" class="save-button wide">Sign up</button>
+
+        </form>
+
+        {% include "taskmanager/partials/_social_buttons.html" %}
+
+        <p class="form-footer">
+            Already have an account? <a href="{% url 'login' %}">Log in</a>
+        </p>
+
+    </div>
+
+</div>
+
+{% endblock %}

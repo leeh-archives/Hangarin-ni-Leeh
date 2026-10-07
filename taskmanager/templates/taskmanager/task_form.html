@@ -1,0 +1,57 @@
+{% extends "taskmanager/base.html" %}
+
+{% block title %}{{ heading }} | Hangarin{% endblock %}
+
+{% block content %}
+
+<div class="page-heading">
+    {% if task %}
+        <a href="{% url 'task_detail' task.id %}" class="back-link">← Back to task</a>
+    {% else %}
+        <a href="{% url 'task_list' %}" class="back-link">← Back to tasks</a>
+    {% endif %}
+    <h2>{{ heading }} 🌷</h2>
+    <p>{{ subheading }}</p>
+</div>
+
+
+<div class="form-card">
+
+    <form method="POST" novalidate>
+
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <p class="form-error">{{ form.non_field_errors|join:" " }}</p>
+        {% endif %}
+
+        {% include "taskmanager/partials/_field.html" with field=form.title %}
+        {% include "taskmanager/partials/_field.html" with field=form.description %}
+        {% include "taskmanager/partials/_field.html" with field=form.deadline %}
+
+        <div class="form-row">
+            {% include "taskmanager/partials/_field.html" with field=form.status %}
+            {% include "taskmanager/partials/_field.html" with field=form.category %}
+            {% include "taskmanager/partials/_field.html" with field=form.priority %}
+        </div>
+
+        <p class="form-hint">
+            Need something different? Manage your
+            <a href="{% url 'option_list' 'categories' %}">categories</a> or
+            <a href="{% url 'option_list' 'priorities' %}">priorities</a>.
+        </p>
+
+        <div class="form-actions">
+            {% if task %}
+                <a href="{% url 'task_detail' task.id %}" class="cancel-button">Cancel</a>
+            {% else %}
+                <a href="{% url 'task_list' %}" class="cancel-button">Cancel</a>
+            {% endif %}
+            <button type="submit" class="save-button">{{ button }}</button>
+        </div>
+
+    </form>
+
+</div>
+
+{% endblock %}

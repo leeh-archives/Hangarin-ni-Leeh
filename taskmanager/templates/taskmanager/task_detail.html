@@ -5,124 +5,132 @@
 {% block content %}
 
 <div class="page-heading">
-
-    <a href="{% url 'task_list' %}" class="back-link">
-        ← Back to Tasks
-    </a>
-
+    <a href="{% url 'task_list' %}" class="back-link">← Back to tasks</a>
     <h2>{{ task.title }}</h2>
-
-    <p>Here are the details of this task.</p>
-
+    <div class="task-info heading-chips">
+        <span class="chip status-{{ task.status|slugify }}">{{ task.status }}</span>
+        <span class="chip priority-{{ task.priority.name|slugify }}">⭐ {{ task.priority }}</span>
+        <span class="chip">🌷 {{ task.category }}</span>
+        {% if task.is_overdue %}<span class="chip overdue">Overdue</span>{% endif %}
+    </div>
 </div>
 
 
-<!-- Task Details -->
-
 <div class="detail-card">
 
-    <h3>Task Details 🌷</h3>
+    <h3>Details</h3>
 
-    <p>
-        <strong>Description</strong><br>
-        {{ task.description }}
-    </p>
+    {% if task.description %}
+        <p>{{ task.description|linebreaksbr }}</p>
+    {% else %}
+        <p class="empty-text">No description for this one.</p>
+    {% endif %}
 
     <div class="detail-info">
+        <span>📅 Due {{ task.deadline|date:"l, F j, Y" }} at {{ task.deadline|date:"g:i A" }}</span>
+        {% if task.status != "Completed" %}
+            <span>
+                {% if task.is_overdue %}{{ task.deadline|timesince }} overdue{% else %}{{ task.deadline|timeuntil }} left{% endif %}
+            </span>
+        {% endif %}
+        <span>Added {{ task.created_at|date:"M j, Y" }}</span>
+    </div>
 
-        <span>
-            Status: {{ task.status }}
-        </span>
-
-        <span>
-            Category: {{ task.category }}
-        </span>
-
-        <span>
-            Priority: {{ task.priority }}
-        </span>
-
-        <span>
-            Deadline: {{ task.deadline }}
-        </span>
-
+    <div class="status-switch">
+        <span>Status:</span>
+        {% for s in status_options %}
+            <form method="POST" action="{% url 'task_status' task.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="status" value="{{ s }}">
+                <button type="submit" class="seg-button {% if task.status == s %}selected{% endif %}"
+                        {% if task.status == s %}disabled{% endif %}>{{ s }}</button>
+            </form>
+        {% endfor %}
     </div>
 
 </div>
 
 
-<!-- Notes -->
+<div class="detail-card">
+
+    <h3>Steps 🌱
+        {% if subtasks %}<small class="count">{{ subtasks_done }} of {{ subtasks|length }} done</small>{% endif %}
+    </h3>
+
+    {% if progress is not None %}
+        <div class="progress"><div class="progress-bar" style="width: {{ progress }}%"></div></div>
+    {% endif %}
+
+    {% for subtask in subtasks %}
+        <div class="subtask-item {% if subtask.status == 'Completed' %}done{% endif %}">
+
+            <form method="POST" action="{% url 'subtask_toggle' subtask.id %}" class="subtask-main">
+                {% csrf_token %}
+                <button type="submit" class="check-button"
+                        title="{% if subtask.status == 'Completed' %}Mark as not done{% else %}Mark as done{% endif %}">
+                    {% if subtask.status == 'Completed' %}☑{% else %}☐{% endif %}
+                </button>
+                <span class="subtask-title">{{ subtask.title }}</span>
+            </form>
+
+            <div class="row-actions">
+                <a href="{% url 'subtask_edit' subtask.id %}" class="icon-button" title="Edit this step" aria-label="Edit this step">✎</a>
+                <form method="POST" action="{% url 'subtask_delete' subtask.id %}"
+                      onsubmit="return confirm('Remove this step?');">
+                    {% csrf_token %}
+                    <button type="submit" class="icon-button" title="Remove this step" aria-label="Remove this step">✕</button>
+                </form>
+            </div>
+
+        </div>
+    {% empty %}
+        <p class="empty-text">No steps yet. Break the task into small pieces if it feels big.</p>
+    {% endfor %}
+
+    <form method="POST" action="{% url 'subtask_add' task.id %}" class="inline-add">
+        {% csrf_token %}
+        {{ subtask_form.title }}
+        <button type="submit" class="save-button">Add</button>
+    </form>
+
+</div>
+
 
 <div class="detail-card">
 
     <h3>Notes 📝</h3>
 
     {% for note in notes %}
-
         <div class="note-item">
-            {{ note.content }}
+            <p>{{ note.content|linebreaksbr }}</p>
+            <div class="note-meta">
+                <span>{{ note.created_at|date:"M j, Y, g:i A" }}</span>
+                <div class="row-actions">
+                    <a href="{% url 'note_edit' note.id %}" class="link-button">Edit</a>
+                    <form method="POST" action="{% url 'note_delete' note.id %}"
+                          onsubmit="return confirm('Delete this note?');">
+                        {% csrf_token %}
+                        <button type="submit" class="link-button">Delete</button>
+                    </form>
+                </div>
+            </div>
         </div>
-
     {% empty %}
-
-        <p class="empty-text">
-            No notes for this task yet.
-        </p>
-
+        <p class="empty-text">No notes yet.</p>
     {% endfor %}
+
+    <form method="POST" action="{% url 'note_add' task.id %}" class="note-form">
+        {% csrf_token %}
+        {{ note_form.content }}
+        <button type="submit" class="save-button">Save note</button>
+    </form>
 
 </div>
 
-
-<!-- Subtasks -->
-
-<div class="detail-card">
-
-    <h3>SubTasks 🌱</h3>
-
-    {% for subtask in subtasks %}
-
-        <div class="subtask-item">
-
-            <strong>
-                {{ subtask.title }}
-            </strong>
-
-            <span>
-                {{ subtask.status }}
-            </span>
-
-        </div>
-
-    {% empty %}
-
-        <p class="empty-text">
-            No subtasks for this task yet.
-        </p>
-
-    {% endfor %}
-
-</div>
-
-
-<!-- Actions -->
 
 <div class="task-actions">
-
-    <a
-        href="{% url 'task_edit' task.id %}"
-        class="edit-button"
-    >
-        Edit Task
-    </a>
-
-    <a
-        href="{% url 'task_delete' task.id %}"
-        class="delete-button"
-    >
-        Delete Task
-    </a>
-
+    <a href="{% url 'task_edit' task.id %}" class="edit-button">Edit task</a>
+    <a href="{% url 'task_delete' task.id %}" class="delete-button">Delete task</a>
 </div>
 
 {% endblock %}

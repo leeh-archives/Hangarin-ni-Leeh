@@ -1,0 +1,19 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline | Hangarin</title>
+    <link rel="stylesheet" href="{% static 'taskmanager/style.css' %}">
+</head>
+<body class="auth-page">
+    <main class="form-page">
+        <div class="empty-state">
+            <h3>You're offline 🌸</h3>
+            <p>Hangarin needs a connection to load your tasks. Check your internet and try again.</p>
+            <a href="/tasks/" class="add-button">Try again</a>
+        </div>
+    </main>
+</body>
+</html>

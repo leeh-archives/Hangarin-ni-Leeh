@@ -1,0 +1,70 @@
+{% extends "taskmanager/base.html" %}
+
+{% block title %}{{ config.title }} | Hangarin{% endblock %}
+
+{% block content %}
+
+<div class="page-heading">
+    <h2>{{ config.title }} {{ config.icon }}</h2>
+    <p>{{ config.intro }}</p>
+</div>
+
+
+<div class="detail-card">
+
+    <h3>Add a {{ config.one }}</h3>
+
+    <form method="POST" class="inline-add">
+        {% csrf_token %}
+        {{ form.name }}
+        <button type="submit" class="save-button">Add</button>
+    </form>
+
+    {% for error in form.name.errors %}
+        <p class="field-error">{{ error }}</p>
+    {% endfor %}
+
+</div>
+
+
+<div class="detail-card">
+
+    <h3>Your {{ config.title|lower }}</h3>
+
+    {% for item in items %}
+        <div class="option-item">
+
+            <div class="option-name">
+                <strong>{{ item.name }}</strong>
+                {% if item.user_id is None %}
+                    <span class="chip">Default</span>
+                {% endif %}
+                <span class="option-count">
+                    {{ item.use_count }} task{{ item.use_count|pluralize }}
+                </span>
+            </div>
+
+            {% if item.user_id is not None %}
+                <div class="row-actions">
+                    <a href="{% url 'option_edit' kind item.id %}" class="mini-button">Rename</a>
+                    <form method="POST" action="{% url 'option_delete' kind item.id %}"
+                          onsubmit="return confirm('Delete {{ item.name|escapejs }}?');">
+                        {% csrf_token %}
+                        <button type="submit" class="mini-button danger">Delete</button>
+                    </form>
+                </div>
+            {% endif %}
+
+        </div>
+    {% empty %}
+        <p class="empty-text">Nothing here yet.</p>
+    {% endfor %}
+
+    <p class="form-hint">
+        Defaults are shared with everyone and can't be changed. Anything you add is only yours.
+        A {{ config.one }} that's still used by a task can't be deleted until you move those tasks.
+    </p>
+
+</div>
+
+{% endblock %}

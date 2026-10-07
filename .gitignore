@@ -1,5 +1,15 @@
+# virtual environments
 hangarinenv/
+.venv/
+venv/
+
+# python junk
 __pycache__/
 *.pyc
+
+# local stuff
 db.sqlite3
 .env
+media/
+staticfiles/
+.DS_Store
