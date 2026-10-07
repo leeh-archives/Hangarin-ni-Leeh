@@ -1,0 +1,70 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hangarin - Create Task</title>
+    <link rel="stylesheet" href="{% static 'taskmanager/style.css' %}">
+</head>
+<body>
+
+    <a href="{% url 'task_list' %}">All Tasks</a>
+
+    <hr>
+
+    <h1>Create Task</h1>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <p>
+            <label>Title:</label><br>
+            <input type="text" name="title" required>
+        </p>
+
+        <p>
+            <label>Description:</label><br>
+            <textarea name="description" required></textarea>
+        </p>
+
+        <p>
+            <label>Deadline:</label><br>
+            <input type="datetime-local" name="deadline" required>
+        </p>
+
+        <p>
+            <label>Status:</label><br>
+            <select name="status">
+                <option value="Pending">Pending</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+            </select>
+        </p>
+
+        <p>
+            <label>Category:</label><br>
+            <select name="category" required>
+                {% for category in categories %}
+                    <option value="{{ category.id }}">
+                        {{ category.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </p>
+
+        <p>
+            <label>Priority:</label><br>
+            <select name="priority" required>
+                {% for priority in priorities %}
+                    <option value="{{ priority.id }}">
+                        {{ priority.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </p>
+
+        <button type="submit">Create Task</button>
+    </form>
+
+</body>
+</html>

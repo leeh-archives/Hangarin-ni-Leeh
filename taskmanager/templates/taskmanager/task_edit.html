@@ -1,0 +1,93 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hangarin - Edit Task</title>
+    <link rel="stylesheet" href="{% static 'taskmanager/style.css' %}">
+</head>
+<body>
+
+    <a href="{% url 'task_list' %}">All Tasks</a>
+
+    <hr>
+
+    <h1>Edit Task</h1>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <p>
+            <label>Title:</label><br>
+            <input type="text" name="title" value="{{ task.title }}" required>
+        </p>
+
+        <p>
+            <label>Description:</label><br>
+            <textarea name="description" required>{{ task.description }}</textarea>
+        </p>
+
+        <p>
+            <label>Deadline:</label><br>
+            <input type="datetime-local" name="deadline" value="{{ task.deadline|date:'Y-m-d\TH:i' }}" required>
+        </p>
+
+        <p>
+            <label>Status:</label><br>
+            <select name="status">
+
+                <option value="Pending" {% if task.status == "Pending" %}selected{% endif %}>
+                    Pending
+                </option>
+
+                <option value="In Progress" {% if task.status == "In Progress" %}selected{% endif %}>
+                    In Progress
+                </option>
+
+                <option value="Completed" {% if task.status == "Completed" %}selected{% endif %}>
+                    Completed
+                </option>
+
+            </select>
+        </p>
+
+        <p>
+            <label>Category:</label><br>
+
+            <select name="category" required>
+
+                {% for category in categories %}
+
+                    <option value="{{ category.id }}"
+                        {% if task.category.id == category.id %}selected{% endif %}>
+                        {{ category.name }}
+                    </option>
+
+                {% endfor %}
+
+            </select>
+        </p>
+
+        <p>
+            <label>Priority:</label><br>
+
+            <select name="priority" required>
+
+                {% for priority in priorities %}
+
+                    <option value="{{ priority.id }}"
+                        {% if task.priority.id == priority.id %}selected{% endif %}>
+                        {{ priority.name }}
+                    </option>
+
+                {% endfor %}
+
+            </select>
+        </p>
+
+        <button type="submit">Save Changes</button>
+
+    </form>
+
+</body>
+</html>

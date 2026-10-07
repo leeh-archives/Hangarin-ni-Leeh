@@ -1,0 +1,40 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hangarin - Tasks</title>
+    <link rel="stylesheet" href="{% static 'taskmanager/style.css' %}">
+</head>
+</head>
+<body>
+
+    <a href="{% url 'task_list' %}">All Tasks</a>
+    <a href="{% url 'task_create' %}">Create Task</a>
+
+<hr>
+
+    <h1>My Tasks</h1>
+
+    {% for task in tasks %}
+        <div class="task">
+            
+            <h2>
+                <a href="{% url 'task_detail' task.id %}">
+                    {{ task.title }}
+                </a>
+            </h2>
+            <p>{{ task.description }}</p>
+            <p>Status: {{ task.status }}</p>
+            <p>Priority: {{ task.priority }}</p>
+            <p>Category: {{ task.category }}</p>
+            <p>Deadline: {{ task.deadline }}</p>
+        </div>
+
+        <hr>
+    {% empty %}
+        <p>No tasks available.</p>
+    {% endfor %}
+
+</body>
+</html>
