@@ -8,7 +8,7 @@ self.addEventListener("install", function(event) {
                 "/",
                 "/tasks/",
                 "/static/taskmanager/style.css",
-                "/static/taskmanager/img/hangarin-icon.png"
+                "/static/taskmanager/img/icon-192x192.png"
             ]);
 
         })
